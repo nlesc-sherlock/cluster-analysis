@@ -9,7 +9,7 @@
 #   Ubuntu: apt-get install mcl 
 #
 
-import os
+import os, sys
 import argparse as argp
 import numpy as np
 
