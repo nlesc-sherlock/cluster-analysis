@@ -6,7 +6,7 @@ import argparse as argp
 
 
 parser = argp.ArgumentParser(
-   description = 'This script generates a sample of N sub-graphs from an input graph.')
+   description = 'This script generates a sample of N sub-graphs from an input graph stored in a database.')
 
 parser.add_argument(
    '-f',
@@ -28,7 +28,7 @@ parser.add_argument(
    type = float,
    dest = 'cutoff',
    default = 0,
-   help = 'edge weight cutoff')
+   help = 'edge weight (similarity) cutoff')
 
 parser.add_argument(
    'dbfile',
