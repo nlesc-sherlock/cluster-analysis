@@ -5,7 +5,7 @@ from matplotlib import pyplot
 import subprocess
 
 directory = 'kodak_db'
-
+data_dir = '../data/set_2/'
 
 def get_exif(filename):
     from fractions import Fraction
@@ -21,7 +21,7 @@ def read_image_exif_data(filelist):
     return imagelist
 
 def read_exif_from_cache(numfiles):
-    exif_data = numpy.fromfile("exif_cache.dat", dtype=numpy.float)
+    exif_data = numpy.fromfile(data_dir + "exif_cache.dat", dtype=numpy.float)
     return exif_data.reshape(numfiles, 3)
 
 def create_exif_data_cache():
@@ -30,17 +30,17 @@ def create_exif_data_cache():
         data = get_exif(filelist[i])
         exif_data.append(data)
     exif_data = numpy.array(exif_data, dtype=numpy.float)
-    exif_data.tofile("exif_cache.dat")
+    exif_data.tofile(data_dir + "exif_cache.dat")
     return exif_data
 
 def get_filelist_from_files(directory):
     out, err = subprocess.Popen(['ls', directory], stdout=subprocess.PIPE).communicate()
     filelist = out.split()
-    numpy.savetxt("filelist.txt", filelist, fmt="%s")
+    numpy.savetxt(data_dir + "filelist.txt", filelist, fmt="%s")
     return filelist
 
 def get_filelist_from_cache():
-    filelist = numpy.loadtxt("filelist.txt", dtype=numpy.string_)
+    filelist = numpy.loadtxt(data_dir + "filelist.txt", dtype=numpy.string_)
     return filelist
 
 
@@ -96,13 +96,13 @@ if __name__ == "__main__":
 
     #matrix_file = 'cluster-analysis/data/set_2/matrix_304_pce.txt'
     #matrix_pce = numpy.loadtxt(matrix_file, delimiter=',', usecols=range(304))
-    matrix_file = 'set_2/matrix_304_pce.dat'
+    matrix_file = data_dir + 'matrix_304_pce.dat'
     matrix_pce = numpy.fromfile(matrix_file)
     matrix_pce = matrix_pce.reshape(numfiles, numfiles)
 
     #matrix_file = 'cluster-analysis/data/set_3/matrix_304_ncc.txt'
     #matrix_ncc = numpy.loadtxt(matrix_file, delimiter=',', usecols=range(304))
-    matrix_file = 'set_3/matrix_304_ncc.dat'
+    matrix_file = data_dir + 'matrix_304_ncc.dat'
     matrix_ncc = numpy.fromfile(matrix_file)
     matrix_ncc = matrix_ncc.reshape(numfiles, numfiles)
 
