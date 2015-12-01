@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import pylab
 import scipy.cluster.hierarchy as sch
 from scipy.spatial.distance import squareform
@@ -24,10 +22,8 @@ def plot_distance_matrices(matrix1, matrix2, matrix3):
 
 
 
-def compute_linkage(matrix):
-    Y = sch.linkage(matrix, method='complete')
-    #Y = sch.linkage(matrix, method='average')
-    #Y = sch.linkage(matrix, method='single')
+def compute_linkage(matrix, method='complete'):
+    Y = sch.linkage(matrix, method=method)
     return Y
 
 
@@ -65,7 +61,7 @@ def plot_dendrogram_and_matrix(linkage, matrix):
     return dendrogram
 
 
-def get_cluster_classes(dendrogram, label='leaves'):
+def get_clusters_from_dendogram(dendrogram, label='leaves'):
     #this function is adapted from from:
     #http://nxn.se/post/90198924975/extract-cluster-elements-by-color-in-python
     colors = set(dendrogram['color_list'])
@@ -85,112 +81,6 @@ def get_cluster_classes(dendrogram, label='leaves'):
 
 
 
-
-
-
-
-
-
-
-
-if __name__ == "__main__":
-
-
-    matrix_pce = numpy.fromfile("../data/set_2/matrix_304_pce.dat", dtype=numpy.float)
-    matrix_ncc = numpy.fromfile("../data/set_2/matrix_304_ncc.dat", dtype=numpy.float)
-
-    numfiles = int(numpy.sqrt(matrix_ncc.size))
-
-    #map the ncc values into the range of pce values and shift to align medians
-    matrix_ncc = matrix_ncc * 10000.0
-    diff = numpy.median(matrix_pce) - numpy.median(matrix_ncc)
-    matrix_ncc += diff
-    matrix_ncc[matrix_ncc < 0.0] = 0.0
-
-    matrix_pce[matrix_pce > 200.0] = 200.0
-    matrix_ncc[matrix_ncc > 200.0] = 200.0
-
-    #prevent div by zero
-    matrix_pce += 0.0000001
-    matrix_ncc += 0.0000001
-
-    #convert similarity score to distance
-    matrix_pce = 200.0 / matrix_pce
-    matrix_ncc = 200.0 / matrix_ncc
-
-    #set maximum distance at 200.0
-    matrix_pce[matrix_pce > 200.0] = 200.0
-    matrix_ncc[matrix_ncc > 200.0] = 200.0
-
-    #pylab.hist(matrix_pce, 200)
-    #pylab.figure()
-    #pylab.hist(matrix_ncc, 200)
-    #pylab.show()
-
-
-    #reshape to square matrix form
-    matrix_pce = matrix_pce.reshape(numfiles,numfiles)
-    matrix_ncc = matrix_ncc.reshape(numfiles,numfiles)
-
-    #zero diagonal
-    index = range(numfiles)
-    matrix_pce[index, index] = 0.0
-    matrix_ncc[index, index] = 0.0
-
-
-    #experiment with methods for combining the distance matrices into one
-    matrix = numpy.minimum(matrix_pce, matrix_ncc)  #minimum distance
-    #matrix = numpy.sqrt(matrix_pce * matrix_ncc)   #geometric mean
-    #matrix = (matrix_pce + matrix_ncc) / 2.0       #arithmetic mean
-
-    #pylab.hist(matrix.ravel(), 200)
-    #pylab.show()
-
-    #plot_distance_matrices(matrix_pce, matrix_ncc, matrix)
-
-    linkage = compute_linkage(matrix)
-
-    dendrogram = plot_dendrogram_and_matrix(linkage, matrix)
-
-    clusters = get_cluster_classes(dendrogram)
-
-    i=0
-    print "\nfound clusters"
-    for c in clusters.values():
-        if len(c) > 0:
-            print "cluster ", i
-            i+=1
-            print sorted(c)
-
-
-    #get the actual clustering
-    filelist = numpy.loadtxt("../data/set_2/filelist.txt", dtype=numpy.string_)
-    true_clustering = numpy.array([s.split("_")[-2] for s in filelist])
-    index = numpy.array(range(len(filelist)))
-    colors = set(true_clustering)
-    true_clusters = [index[true_clustering == c] for c in colors]
-
-    i=0
-    print "\nactual clusters"
-    for c in true_clusters:
-        print "cluster ", i
-        i+=1
-        print sorted(c)
-
-
-
-
-
-    threshold = 0.7*max(linkage[:,2]) # default threshold used in sch.dendogram
-
-
-
-    #go interactive
-    #import readline
-    #import rlcompleter
-    #readline.parse_and_bind("tab: complete")
-    #import code
-    #code.interact(local=dict(globals(), **locals()))
 
 
 
