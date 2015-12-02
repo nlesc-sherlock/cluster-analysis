@@ -101,7 +101,7 @@ def combine_pce_and_ncc_distances(matrix_pce, matrix_ncc):
 
 if __name__ == "__main__":
 
-
+    #load the distance matrixes from files
     matrix_pce = numpy.fromfile("../data/set_2/matrix_304_pce.dat", dtype=numpy.float)
     matrix_ncc = numpy.fromfile("../data/set_2/matrix_304_ncc.dat", dtype=numpy.float)
 
@@ -118,36 +118,45 @@ if __name__ == "__main__":
     #pylab.legend()
     #pylab.show()
 
-    plot_distance_matrices(matrix_pce, matrix_ncc, matrix)
+    #plot_distance_matrices(matrix_pce, matrix_ncc, matrix)
 
     #hierarchical clustering part starts here
     linkage = dendro.compute_linkage(matrix)
 
     #dendrogram = dendro.compute_dendrogram(linkage)
-    dendrogram = dendro.plot_dendrogram_and_matrix(linkage, matrix)
+    #dendrogram = dendro.plot_dendrogram_and_matrix(linkage, matrix)
 
     #clusters = dendro.get_clusters_from_dendogram(dendrogram)
 
     #compute flat clustering in the exact same way as sch.dendogram colors the clusters
     threshold = 0.7*linkage[:,2].max() # default threshold used in sch.dendogram
-    cluster = sch.fcluster(linkage, threshold, criterion='distance')
-    print "flat clustering:\n", numpy.array(cluster) - 1
+    cluster = numpy.array(sch.fcluster(linkage, threshold, criterion='distance'), dtype=numpy.int)
+    print "flat clustering:\n", cluster - 1
 
     #get the actual clustering
     filelist = numpy.loadtxt("../data/set_2/filelist.txt", dtype=numpy.string_)
     true_clustering = numpy.array([s.split("_")[-2] for s in filelist], dtype=numpy.int)
     print "true clustering:\n", true_clustering
 
+    #try some metrics from sklearn
+    from sklearn import metrics
+    print "\n"
+    print "adjusted rand score [-1.0 (bad) to 1.0 (good)]", metrics.adjusted_rand_score(true_clustering, cluster)
+    print ""
+    print "mutual information based score [0.0 (bad) to 1.0 (good)]", metrics.adjusted_mutual_info_score(true_clustering, cluster)
+    print ""
+    print "homogeneity, completeness, v measure [0.0 (bad) to 1.0 (good)]", metrics.homogeneity_completeness_v_measure(true_clustering, cluster)
+    print ""
 
 
 
+    #function to rename the labels from the found clustering to the labels in the true clustering
+    #not very useful but may come in handy at some point
     def rename_clusters(clustering, true_clustering):
         clustering = numpy.array(clustering)
         #initialize new labels as -1
         labels = numpy.zeros(clustering.shape, dtype=numpy.int) -1
         true_clustering = numpy.array(true_clustering)
-        print clustering
-        print true_clustering
         clusters = set(clustering)
         #for each cluster that we found
         for c in clusters:
@@ -172,7 +181,7 @@ if __name__ == "__main__":
 
         return labels
 
-    print "renamed clustering:\n", rename_clusters(cluster, true_clustering)
+#    print "renamed clustering:\n", rename_clusters(cluster, true_clustering)
 
 
 
