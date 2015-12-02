@@ -5,22 +5,6 @@ from matplotlib import pyplot
 import numpy
 
 
-def plot_distance_matrices(matrix1, matrix2, matrix3):
-    f, (ax1, ax2, ax3) = pyplot.subplots(nrows=1, ncols=3, sharex=True, sharey=True)
-    ax1.set_adjustable('box-forced')
-    ax2.set_adjustable('box-forced')
-    ax3.set_adjustable('box-forced')
-
-    ax1.imshow(matrix_pce, vmin=0.0, vmax=20.0)
-    ax1.set_title("PCE distance")
-    ax2.imshow(matrix_ncc, vmin=0.0, vmax=20.0)
-    ax2.set_title("NCC distance")
-    ax3.imshow(matrix, vmin=0.0, vmax=20.0)
-    ax3.set_title("Combined distance")
-    pyplot.show()
-    raw_input()
-
-
 
 def compute_linkage(matrix, method='complete'):
     Y = sch.linkage(matrix, method=method)
@@ -32,11 +16,11 @@ def compute_dendrogram(linkage):
     return dendrogram
 
 
-def plot_dendrogram_and_matrix(linkage, matrix):
+def plot_dendrogram_and_matrix(linkage, matrix, color_threshold=None):
     # Compute and plot dendrogram.
     fig = pylab.figure(figsize=(20,20))
     axdendro = fig.add_axes([0.09,0.1,0.2,0.8])
-    dendrogram = sch.dendrogram(linkage, orientation='right')
+    dendrogram = sch.dendrogram(linkage, color_threshold=color_threshold, orientation='right')
     axdendro.set_xticks([])
     axdendro.set_yticks([])
 
