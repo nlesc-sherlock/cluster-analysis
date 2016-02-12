@@ -28,57 +28,59 @@ import jcuda.jcufft.*;
 import edu.emory.mathcs.jtransforms.fft.FloatFFT_2D;
 
 /**
- * Class for applying a series of Wiener Filters to a PRNU pattern 
+ * Class for comparing PRNU patterns using Peak to Correlation Energy ratio on the GPU
+ *
+ * This class also contains some routines of the Java code for computing PCE scores on the CPU given to me by the NFI.
  * 
  * @author Ben van Werkhoven <b.vanwerkhoven@esciencecenter.nl>
  * @version 0.1
  */
 public class PeakToCorrelationEnergy {
 
-	protected CudaContext _context;
-	protected CudaStream _stream1;
-	protected CudaStream _stream2;
-	protected CudaMemFloat _d_input;
+    protected CudaContext _context;
+    protected CudaStream _stream1;
+    protected CudaStream _stream2;
+    protected CudaMemFloat _d_input;
     protected CudaEvent _event;
 
-	//handles to CUDA kernels
-	protected CudaFunction _tocomplex;
-	protected CudaFunction _tocomplexandflip;
-	protected CudaFunction _computeEnergy;
-	protected CudaFunction _sumDoubles;
-	protected CudaFunction _computeCrossCorr;
-	protected CudaFunction _findPeak;
-	protected CudaFunction _maxlocFloats;
+    //handles to CUDA kernels
+    protected CudaFunction _tocomplex;
+    protected CudaFunction _tocomplexandflip;
+    protected CudaFunction _computeEnergy;
+    protected CudaFunction _sumDoubles;
+    protected CudaFunction _computeCrossCorr;
+    protected CudaFunction _findPeak;
+    protected CudaFunction _maxlocFloats;
 
-	//handle for CUFFT plan
-	protected cufftHandle _plan1;
-	protected cufftHandle _plan2;
+    //handle for CUFFT plan
+    protected cufftHandle _plan1;
+    protected cufftHandle _plan2;
 
-	//handles to device memory arrays
-	protected CudaMemFloat _d_inputx;
-	protected CudaMemFloat _d_inputy;
-	protected CudaMemFloat _d_x;
-	protected CudaMemFloat _d_y;
-	protected CudaMemFloat _d_c;
-	protected CudaMemInt _d_peakIndex;
-	protected CudaMemFloat _d_peakValue;
-	protected CudaMemFloat _d_peakValues;
-	protected CudaMemDouble _d_energy;
+    //handles to device memory arrays
+    protected CudaMemFloat _d_inputx;
+    protected CudaMemFloat _d_inputy;
+    protected CudaMemFloat _d_x;
+    protected CudaMemFloat _d_y;
+    protected CudaMemFloat _d_c;
+    protected CudaMemInt _d_peakIndex;
+    protected CudaMemFloat _d_peakValue;
+    protected CudaMemFloat _d_peakValues;
+    protected CudaMemDouble _d_energy;
 
     protected CudaMemFloat _d_x_patterns[];
     protected CudaMemFloat _d_y_patterns[];
 
-	//parameterlists for kernel invocations
-	protected Pointer toComplex;
-	protected Pointer toComplexAndFlip;
-	protected Pointer computeEnergy;
-	protected Pointer sumDoubles;
-	protected Pointer computeCrossCorr;
-	protected Pointer findPeak;
-	protected Pointer maxlocFloats;
+    //parameterlists for kernel invocations
+    protected Pointer toComplex;
+    protected Pointer toComplexAndFlip;
+    protected Pointer computeEnergy;
+    protected Pointer sumDoubles;
+    protected Pointer computeCrossCorr;
+    protected Pointer findPeak;
+    protected Pointer maxlocFloats;
 
-	protected int h;
-	protected int w;
+    protected int h;
+    protected int w;
     protected boolean useRealPeak;
 
     public int _rows;
@@ -94,23 +96,24 @@ public class PeakToCorrelationEnergy {
 
     public FloatFFT_2D _fft;
 
-	/**
-	 * Constructor for the Wiener Filter, used only by the PRNUFilter factory
-	 * 
-	 * @param h - the image height in pixels
-	 * @param w - the image width in pixels
-	 * @param context - the CudaContext as created by the factory
-	 * @param stream - the CudaStream as created by the factory
-	 * @param module - the CudaModule containing the kernels compiled by the factory
-	 */
-	public PeakToCorrelationEnergy(int h, int w, CudaContext context, CudaModule module, boolean usePeak) {
-		_context = context;
-		_stream1 = new CudaStream();
-		_stream2 = new CudaStream();
+    /**
+     * Constructor for the PeakToCorrelationEnergy
+     * 
+     * @param h - the image height in pixels
+     * @param w - the image width in pixels
+     * @param context - the CudaContext as created by the factory
+     * @param stream - the CudaStream as created by the factory
+     * @param module - the CudaModule containing the kernels compiled by the PRNUFilterFactory
+     * @param usePeak - a boolean for using the real peak value or using the last pixel value
+     */
+    public PeakToCorrelationEnergy(int h, int w, CudaContext context, CudaModule module, boolean usePeak) {
+        _context = context;
+        _stream1 = new CudaStream();
+        _stream2 = new CudaStream();
         _event = new CudaEvent();
-		int n = h*w;
-		this.h = h;
-		this.w = w;
+        int n = h*w;
+        this.h = h;
+        this.w = w;
         this.useRealPeak = usePeak;
 
         _rows = h;
@@ -124,30 +127,30 @@ public class PeakToCorrelationEnergy {
         _x = new float[_rows * _columns * 2];
         _y = new float[_rows * _columns * 2];
 
-		//initialize CUFFT
-		JCufft.initialize();
-		JCufft.setExceptionsEnabled(true);
-		_plan1 = new cufftHandle();
-		_plan2 = new cufftHandle();
+        //initialize CUFFT
+        JCufft.initialize();
+        JCufft.setExceptionsEnabled(true);
+        _plan1 = new cufftHandle();
+        _plan2 = new cufftHandle();
 
-		//setup CUDA functions
+        //setup CUDA functions
         JCudaDriver.setExceptionsEnabled(true);
-		int threads_x = 32;
-		int threads_y = 16;
-		_tocomplex = module.getFunction("toComplex");
-		_tocomplex.setDim(	(int)Math.ceil((float)w / (float)threads_x), (int)Math.ceil((float)h / (float)threads_y), 1,
-				threads_x, threads_y, 1);
+        int threads_x = 32;
+        int threads_y = 16;
+        _tocomplex = module.getFunction("toComplex");
+        _tocomplex.setDim(    (int)Math.ceil((float)w / (float)threads_x), (int)Math.ceil((float)h / (float)threads_y), 1,
+                threads_x, threads_y, 1);
 
-		_tocomplexandflip = module.getFunction("toComplexAndFlip");
-		_tocomplexandflip.setDim(	(int)Math.ceil((float)w / (float)threads_x), (int)Math.ceil((float)h / (float)threads_y), 1,
-				threads_x, threads_y, 1);
-		
-		_computeCrossCorr = module.getFunction("computeCrossCorr");
-		_computeCrossCorr.setDim(	(int)Math.ceil((float)w / (float)threads_x), (int)Math.ceil((float)h / (float)threads_y), 1,
-				threads_x, threads_y, 1);
+        _tocomplexandflip = module.getFunction("toComplexAndFlip");
+        _tocomplexandflip.setDim(    (int)Math.ceil((float)w / (float)threads_x), (int)Math.ceil((float)h / (float)threads_y), 1,
+                threads_x, threads_y, 1);
+        
+        _computeCrossCorr = module.getFunction("computeCrossCorr");
+        _computeCrossCorr.setDim(    (int)Math.ceil((float)w / (float)threads_x), (int)Math.ceil((float)h / (float)threads_y), 1,
+                threads_x, threads_y, 1);
 
-        //dimensions for reducing kernels		
-		int threads = 1024;
+        //dimensions for reducing kernels        
+        int threads = 1024;
         int reducing_thread_blocks = 15; //optimally this equals the number of SMs in the GPU
 
         //nicer way of accesssing the number of SMs through the Cuba API
@@ -155,21 +158,21 @@ public class PeakToCorrelationEnergy {
         System.out.println("detected " + num_sm + " SMs on GPU");
         reducing_thread_blocks = num_sm;
 
-		_findPeak = module.getFunction("findPeak");
-		_findPeak.setDim(	reducing_thread_blocks, 1, 1,
-				threads, 1, 1);
-
-		_maxlocFloats = module.getFunction("maxlocFloats");
-		_maxlocFloats.setDim( 1, 1, 1,
-                threads, 1, 1);	
-
-		_computeEnergy = module.getFunction("computeEnergy");
-		_computeEnergy.setDim( reducing_thread_blocks, 1, 1,
+        _findPeak = module.getFunction("findPeak");
+        _findPeak.setDim(    reducing_thread_blocks, 1, 1,
                 threads, 1, 1);
 
-		_sumDoubles = module.getFunction("sumDoubles");
-		_sumDoubles.setDim( 1, 1, 1,
-                threads, 1, 1);	
+        _maxlocFloats = module.getFunction("maxlocFloats");
+        _maxlocFloats.setDim( 1, 1, 1,
+                threads, 1, 1);    
+
+        _computeEnergy = module.getFunction("computeEnergy");
+        _computeEnergy.setDim( reducing_thread_blocks, 1, 1,
+                threads, 1, 1);
+
+        _sumDoubles = module.getFunction("sumDoubles");
+        _sumDoubles.setDim( 1, 1, 1,
+                threads, 1, 1);    
 
         long free[] = new long[1];
         long total[] = new long[1];
@@ -177,38 +180,38 @@ public class PeakToCorrelationEnergy {
         //JCuda.cudaMemGetInfo(free, total);
         //System.out.println("Before allocations in PCE free GPU mem: " + free[0]/1024/1024 + " MB total: " + total[0]/1024/1024 + " MB ");
 
-		//allocate local variables in GPU memory
-		_d_inputx = _context.allocFloats(h*w);
-		_d_inputy = _context.allocFloats(h*w);
-		_d_x = _context.allocFloats(h*w*2);
-		_d_y = _context.allocFloats(h*w*2);
-		_d_c = _context.allocFloats(h*w*2);
-		_d_peakIndex = _context.allocInts(reducing_thread_blocks);
-		_d_peakValue = _context.allocFloats(1);
-		_d_peakValues = _context.allocFloats(reducing_thread_blocks);
-		_d_energy = _context.allocDoubles(reducing_thread_blocks);
+        //allocate local variables in GPU memory
+        _d_inputx = _context.allocFloats(h*w);
+        _d_inputy = _context.allocFloats(h*w);
+        _d_x = _context.allocFloats(h*w*2);
+        _d_y = _context.allocFloats(h*w*2);
+        _d_c = _context.allocFloats(h*w*2);
+        _d_peakIndex = _context.allocInts(reducing_thread_blocks);
+        _d_peakValue = _context.allocFloats(1);
+        _d_peakValues = _context.allocFloats(reducing_thread_blocks);
+        _d_energy = _context.allocDoubles(reducing_thread_blocks);
 
         //JCuda.cudaMemGetInfo(free, total);
         //System.out.println("After allocations in PCE free GPU mem: " + free[0]/1024/1024 + " MB total: " + total[0]/1024/1024 + " MB ");
 
-		//create CUFFT plan and associate with stream
-		int res;
-		res = JCufft.cufftPlan2d(_plan1, h, w, cufftType.CUFFT_C2C);
-		if (res != cufftResult.CUFFT_SUCCESS) {
-			System.err.println("Error while creating CUFFT plan 2D 1");
-		}
-		res = JCufft.cufftPlan2d(_plan2, h, w, cufftType.CUFFT_C2C);
-		if (res != cufftResult.CUFFT_SUCCESS) {
-			System.err.println("Error while creating CUFFT plan 2D 2");
-		}
-		res = JCufft.cufftSetStream(_plan1, new cudaStream_t(_stream1.cuStream()));
-		if (res != cufftResult.CUFFT_SUCCESS) {
-			System.err.println("Error while associating plan with stream");
-		}
-		res = JCufft.cufftSetStream(_plan2, new cudaStream_t(_stream2.cuStream()));
-		if (res != cufftResult.CUFFT_SUCCESS) {
-			System.err.println("Error while associating plan with stream");
-		}
+        //create CUFFT plan and associate with stream
+        int res;
+        res = JCufft.cufftPlan2d(_plan1, h, w, cufftType.CUFFT_C2C);
+        if (res != cufftResult.CUFFT_SUCCESS) {
+            System.err.println("Error while creating CUFFT plan 2D 1");
+        }
+        res = JCufft.cufftPlan2d(_plan2, h, w, cufftType.CUFFT_C2C);
+        if (res != cufftResult.CUFFT_SUCCESS) {
+            System.err.println("Error while creating CUFFT plan 2D 2");
+        }
+        res = JCufft.cufftSetStream(_plan1, new cudaStream_t(_stream1.cuStream()));
+        if (res != cufftResult.CUFFT_SUCCESS) {
+            System.err.println("Error while associating plan with stream");
+        }
+        res = JCufft.cufftSetStream(_plan2, new cudaStream_t(_stream2.cuStream()));
+        if (res != cufftResult.CUFFT_SUCCESS) {
+            System.err.println("Error while associating plan with stream");
+        }
 
         JCuda.cudaMemGetInfo(free, total);
         //System.out.println("After FFT plans in PCE free GPU mem: " + free[0]/1024/1024 + " MB total: " + total[0]/1024/1024 + " MB ");
@@ -234,64 +237,65 @@ public class PeakToCorrelationEnergy {
         System.out.println("After allocating patterns in PCE free GPU mem: " + free[0]/1024/1024 + " MB total: " + total[0]/1024/1024 + " MB ");
 
 
-		//construct parameter lists for the CUDA kernels
-		toComplex = Pointer.to(
-				Pointer.to(new int[]{h}),
-				Pointer.to(new int[]{w}),
-				Pointer.to(_d_x.getDevicePointer()),
-				Pointer.to(_d_inputx.getDevicePointer())
-				);
-		toComplexAndFlip = Pointer.to(
-				Pointer.to(new int[]{h}),
-				Pointer.to(new int[]{w}),
-				Pointer.to(_d_y.getDevicePointer()),
-				Pointer.to(_d_inputy.getDevicePointer())
+        //construct parameter lists for the CUDA kernels
+        toComplex = Pointer.to(
+                Pointer.to(new int[]{h}),
+                Pointer.to(new int[]{w}),
+                Pointer.to(_d_x.getDevicePointer()),
+                Pointer.to(_d_inputx.getDevicePointer())
                 );
-		computeEnergy = Pointer.to(
-				Pointer.to(new int[]{h}),
-				Pointer.to(new int[]{w}),
-				Pointer.to(_d_energy.getDevicePointer()),
-				Pointer.to(_d_peakIndex.getDevicePointer()),
-				Pointer.to(_d_c.getDevicePointer())
-				);
-		sumDoubles = Pointer.to(
-				Pointer.to(_d_energy.getDevicePointer()),
-				Pointer.to(_d_energy.getDevicePointer()),
+        toComplexAndFlip = Pointer.to(
+                Pointer.to(new int[]{h}),
+                Pointer.to(new int[]{w}),
+                Pointer.to(_d_y.getDevicePointer()),
+                Pointer.to(_d_inputy.getDevicePointer())
+                );
+        computeEnergy = Pointer.to(
+                Pointer.to(new int[]{h}),
+                Pointer.to(new int[]{w}),
+                Pointer.to(_d_energy.getDevicePointer()),
+                Pointer.to(_d_peakIndex.getDevicePointer()),
+                Pointer.to(_d_c.getDevicePointer())
+                );
+        sumDoubles = Pointer.to(
+                Pointer.to(_d_energy.getDevicePointer()),
+                Pointer.to(_d_energy.getDevicePointer()),
                 Pointer.to(new int[]{reducing_thread_blocks})
-				);
-		computeCrossCorr = Pointer.to(
-				Pointer.to(new int[]{h}),
-				Pointer.to(new int[]{w}),
-				Pointer.to(_d_c.getDevicePointer()),
-				Pointer.to(_d_x.getDevicePointer()),
-				Pointer.to(_d_y.getDevicePointer())
-				);
-		findPeak = Pointer.to(
-				Pointer.to(new int[]{h}),
-				Pointer.to(new int[]{w}),
-				Pointer.to(_d_peakValue.getDevicePointer()),
-				Pointer.to(_d_peakValues.getDevicePointer()),
-				Pointer.to(_d_peakIndex.getDevicePointer()),
-				Pointer.to(_d_c.getDevicePointer())
-				);
-		maxlocFloats = Pointer.to(
-				Pointer.to(_d_peakIndex.getDevicePointer()),
-				Pointer.to(_d_peakValues.getDevicePointer()),
-				Pointer.to(_d_peakIndex.getDevicePointer()),
-				Pointer.to(_d_peakValues.getDevicePointer()),
+                );
+        computeCrossCorr = Pointer.to(
+                Pointer.to(new int[]{h}),
+                Pointer.to(new int[]{w}),
+                Pointer.to(_d_c.getDevicePointer()),
+                Pointer.to(_d_x.getDevicePointer()),
+                Pointer.to(_d_y.getDevicePointer())
+                );
+        findPeak = Pointer.to(
+                Pointer.to(new int[]{h}),
+                Pointer.to(new int[]{w}),
+                Pointer.to(_d_peakValue.getDevicePointer()),
+                Pointer.to(_d_peakValues.getDevicePointer()),
+                Pointer.to(_d_peakIndex.getDevicePointer()),
+                Pointer.to(_d_c.getDevicePointer())
+                );
+        maxlocFloats = Pointer.to(
+                Pointer.to(_d_peakIndex.getDevicePointer()),
+                Pointer.to(_d_peakValues.getDevicePointer()),
+                Pointer.to(_d_peakIndex.getDevicePointer()),
+                Pointer.to(_d_peakValues.getDevicePointer()),
                 Pointer.to(new int[]{reducing_thread_blocks})
-				);
+                );
 
-	}
+    }
 
 
     /**
      * This method performs an array of comparisons between patterns
-     * Arrays xPatterns and yPatterns should be of size num_patterns
+     * It computes the PCE scores between all patterns in xPatterns and those in yPatterns
      *
-     * Predicate is a boolean matrix that denotes if any of the comparisons are not to be computed
-     *
-     * Returns a matrix with all PCE scores comparing all in x with all in y
+     * @param xPatterns     array of PRNU patterns stored as float arrays
+     * @param yPatterns     array of PRNU patterns stored as float arrays
+     * @param predicate     a boolean matrix denoting which comparsions are to be made and which not
+     * @returns             a double matrix with all PCE scores from comparing all patterns in x with all in y
      */
     public double[][] compareGPU(float[][] xPatterns, float[][] yPatterns, boolean[][] predicate) {
 
@@ -328,28 +332,55 @@ public class PeakToCorrelationEnergy {
         return result;
     }
 
+    /**
+     * This method perform part of the PCE computation on the GPU
+     *
+     * It actually performs the host to device transfer, the conversion
+     * to a complex-valued array, and calls CUFFT to perform a complex-
+     * to-complex Fourrier transform.
+     * This method operates in GPU stream 1
+     *
+     * @param d_x   a reference to a float array for storing x on the GPU
+     * @param x     a float array containing the pattern to transfer to the GPU 
+     */
     public void xTransform(CudaMemFloat d_x, float[] x) {
         _d_inputx.copyHostToDeviceAsync(x, _stream1);
-		Pointer toComplexParams = Pointer.to(
-				Pointer.to(new int[]{h}),
-				Pointer.to(new int[]{w}),
-				Pointer.to(d_x.getDevicePointer()),
-				Pointer.to(_d_inputx.getDevicePointer())
-				);
+        Pointer toComplexParams = Pointer.to(
+                Pointer.to(new int[]{h}),
+                Pointer.to(new int[]{w}),
+                Pointer.to(d_x.getDevicePointer()),
+                Pointer.to(_d_inputx.getDevicePointer())
+                );
         _tocomplex.launch(_stream1, toComplexParams);
         JCufft.cufftExecC2C(_plan1, d_x.getDevicePointer(), d_x.getDevicePointer(), JCufft.CUFFT_FORWARD);
     }
+
+    /**
+     * This method perform part of the PCE computation on the GPU
+     *
+     * It actually performs the host to device transfer, the conversion
+     * to a complex-valued array, which also flips the entire pattern,
+     * and finally calls CUFFT to perform a complex-to-complex Fourrier transform.
+     * This method operates in GPU stream 2
+     *
+     * @param d_x   a reference to a float array for storing x on the GPU
+     * @param x     a float array containing the pattern to transfer to the GPU 
+     */
     public void yTransform(CudaMemFloat d_y, float[] y) {
         _d_inputy.copyHostToDeviceAsync(y, _stream2);
-		Pointer toComplexAndFlipParams = Pointer.to(
-				Pointer.to(new int[]{h}),
-				Pointer.to(new int[]{w}),
-				Pointer.to(d_y.getDevicePointer()),
-				Pointer.to(_d_inputy.getDevicePointer())
+        Pointer toComplexAndFlipParams = Pointer.to(
+                Pointer.to(new int[]{h}),
+                Pointer.to(new int[]{w}),
+                Pointer.to(d_y.getDevicePointer()),
+                Pointer.to(_d_inputy.getDevicePointer())
                 );
         _tocomplexandflip.launch(_stream2, toComplexAndFlipParams);
         JCufft.cufftExecC2C(_plan2, d_y.getDevicePointer(), d_y.getDevicePointer(), JCufft.CUFFT_FORWARD);
     }
+
+    /**
+     * A method that synchronizes GPU stream 1 with GPU stream 2
+     */
     public void syncStreams() {
         _event.record(_stream2);
         _stream1.waitEvent(_event);
@@ -357,17 +388,21 @@ public class PeakToCorrelationEnergy {
 
 
     /**
-     * Performs a PCE comparison between two PRNU patterns that are already in GPU memory and FFT transformed
+     * This method performs a PCE comparison between two PRNU patterns that are already in GPU memory and FFT transformed
+     *
+     * @param d_x   a reference to the GPU memory where the FFT transformed pattern is stored
+     * @param d_y   a reference to the GPU memory where the flipped and FFT transformed pattern is stored
+     * @returns     a double representing the peak to correlation energy score for this comparison
      */
     public double compareGPUInPlace(CudaMemFloat d_x, CudaMemFloat d_y) {
 
-		Pointer computeCrossCorrParams = Pointer.to(
-				Pointer.to(new int[]{h}),
-				Pointer.to(new int[]{w}),
-				Pointer.to(_d_c.getDevicePointer()),
-				Pointer.to(d_x.getDevicePointer()),
-				Pointer.to(d_y.getDevicePointer())
-				);
+        Pointer computeCrossCorrParams = Pointer.to(
+                Pointer.to(new int[]{h}),
+                Pointer.to(new int[]{w}),
+                Pointer.to(_d_c.getDevicePointer()),
+                Pointer.to(d_x.getDevicePointer()),
+                Pointer.to(d_y.getDevicePointer())
+                );
         _computeCrossCorr.launch(_stream1, computeCrossCorrParams);
 
         JCufft.cufftExecC2C(_plan1, _d_c.getDevicePointer(), _d_c.getDevicePointer(), JCufft.CUFFT_INVERSE);
@@ -395,6 +430,14 @@ public class PeakToCorrelationEnergy {
     }
 
 
+    /**
+     * This method performs a PCE comparison on the GPU between two PRNU patterns 
+     * It currently mainly exists for testing and debugging, for production use the bulk version
+     *
+     * @param x     a float array containing the PRNU pattern to be compared
+     * @param y     a float array containing the PRNU pattern to be compared
+     * @returns     a double representing the peak to correlation energy score for this comparison
+     */
     public double compareGPU(float[] x, float[] y) {
 
         //copy and process the two inputs in separate streams as long as we can
@@ -434,7 +477,7 @@ public class PeakToCorrelationEnergy {
 
         System.out.println("peak=" + peak[0] + " energy=" + energy[0]);
 
-		JCudaDriver.cuCtxSynchronize();
+        JCudaDriver.cuCtxSynchronize();
         int err = JCuda.cudaGetLastError();
         if (err != cudaError.cudaSuccess) {
             System.err.println("CUDA Error: " + JCuda.cudaGetErrorString(err));
@@ -445,6 +488,14 @@ public class PeakToCorrelationEnergy {
         return absPce;
     }
     
+    /**
+     * This method performs a PCE comparison on the GPU between two PRNU patterns and reports the time spent on each step
+     * It mainly exists for performance testing and debugging, for production use the bulk version
+     *
+     * @param x     a float array containing the PRNU pattern to be compared
+     * @param y     a float array containing the PRNU pattern to be compared
+     * @returns     a double representing the peak to correlation energy score for this comparison
+     */
     public double compareGPUTiming(float[] x, float[] y) {
         long start = System.nanoTime();
           _d_inputx.copyHostToDeviceAsync(x, _stream1);
@@ -493,7 +544,7 @@ public class PeakToCorrelationEnergy {
         end = System.nanoTime();
         System.out.println("computeEnergy took: " + (end-start)/1e6f + " ms.");
 
-		JCudaDriver.cuCtxSynchronize();
+        JCudaDriver.cuCtxSynchronize();
         int err = JCuda.cudaGetLastError();
         if (err != cudaError.cudaSuccess) {
             System.out.println("CUDA Error: " + JCuda.cudaGetErrorString(err));
@@ -512,7 +563,7 @@ public class PeakToCorrelationEnergy {
 
         return absPce;
     }
-	
+    
 
     public void forwardTransform(float[] x) {
         _fft.complexForward(x);
@@ -522,6 +573,14 @@ public class PeakToCorrelationEnergy {
     }
 
 
+    /**
+     * This method performs a PCE comparison on the CPU between two PRNU patterns 
+     * It only exists for correctness testing and debugging, for production use the GPU version
+     *
+     * @param x     a float array containing the PRNU pattern to be compared
+     * @param y     a float array containing the PRNU pattern to be compared
+     * @returns     a double representing the peak to correlation energy score for this comparison
+     */
     public double compare(float[] x, float[] y) {
         toComplexAndFlip(x,y);
 
@@ -545,6 +604,11 @@ public class PeakToCorrelationEnergy {
         return absPce;
     }
 
+    /**
+     * Method for finding the absolute peak in a cross correlated signal
+     *
+     * @returns the index of complex element containing the real-valued peak in the cross correlated signal
+     */
     public int findPeak() { 
         float max = 0.0f;
         int res = 0;
@@ -557,6 +621,17 @@ public class PeakToCorrelationEnergy {
         return res / 2; //divided by 2, because we want the index of the complex number in the complex array
     }
 
+    /**
+     * This method computes the energy of the cross correlated signal minus an area around the peak
+     *
+     * This method is 'fixed' because it uses the actual location of the peak, the original version used the last pixel
+     * as a replacement for the peak.
+     *
+     * @param squareSize    the size of the square area around the peak which is not to be used for computing the energy
+     * @param peakIndexX    the x-index of the peak
+     * @param peakIndexY    the y-index of the peak
+     * @returns             the energy of the cross correlated signal minus an area around the peak
+     */
     public double energyFixed(int squareSize, int peakIndexX, int peakIndexY) {
         int radius = (squareSize - 1) / 2;
         int n = (_rows * _columns) - (squareSize * squareSize);
@@ -578,6 +653,14 @@ public class PeakToCorrelationEnergy {
         return (energy / n);
     }
 
+    /**
+     * This method converts two real-valued PRNU patterns to complex arrays with 0.0 as complex components
+     * It is important to note that y is flipped while it is being transferred to a complex array
+     * The result of this method is stored in the global variables _x and _y
+     *
+     * @param x     a float array containing a PRNU pattern
+     * @param y     a float array containing a PRNU pattern
+     */
     public void toComplexAndFlip(float[] x, float[] y) {
         for (int row = 0; row < _rows; row++) {
             for (int i=0; i<_columns; i++) {
@@ -599,6 +682,10 @@ public class PeakToCorrelationEnergy {
         }
     }
 
+    /**
+     * Method for computing the cross correlation of two complex signals stored in _x and _y
+     * The result of this method is stored in the global variable _c
+     */
     void compute_crosscorr() {
         for (int i = 0; i < _x.length; i += 2) {
             float xRe = _x[i];
@@ -610,90 +697,24 @@ public class PeakToCorrelationEnergy {
         }
     }
 
-
-
-
-
-
-
-
-	/**
-	 * Applies the Wiener Filter to the input pattern already in GPU memory
-	 */
-/*
-	public void applyGPU() {
-
-		//convert values from real to complex
-		_tocomplex.launch(_stream, toComplex);
-
-		//apply complex to complex forward Fourier transform
-		JCufft.cufftExecC2C(_planc2c, _d_comp.getDevicePointer(), _d_comp.getDevicePointer(), JCufft.CUFFT_FORWARD);
-
-		//square the complex frequency values and store as real values
-		_computeSquaredMagnitudes.launch(_stream, sqmag);
-
-		//estimate local variances for four filter sizes, store minimum 
-		_computeVarianceEstimates.launch(_stream, varest);
-
-		//compute global variance
-		_computeVarianceZeroMean.launch(_stream, variancep);
-
-		//scale the frequencies using global and local variance
-		_scaleWithVariances.launch(_stream, scale);
-
-		//inverse fourier transform using CUFFT
-		JCufft.cufftExecC2C(_planc2c, _d_comp.getDevicePointer(), _d_comp.getDevicePointer(), JCufft.CUFFT_INVERSE);
-
-		//CUFFT does not normalize the values after inverse transform, as such all values are scaled with N=(h*w)
-		//normalize the values and convert from complex to real
-		_normalizeToReal.launch(_stream, normalize);
-
-		//for measuring time
-		JCudaDriver.cuCtxSynchronize();
-	}
-*/
-	/**
-	 * Applies the Wiener Filter to the input pattern already in GPU memory
-	 * and measures the time spent on each step. This function is used for
-	 * benchmarking only.
-	 */
-	//public void applyGPUTiming() {
-		//JCudaDriver.cuCtxSynchronize();
-		//long start = System.nanoTime();
-		//_tocomplex.launch(_stream, toComplex); //from _d_input to _d_complex
-		//JCudaDriver.cuCtxSynchronize();
-		//long end = System.nanoTime();
-		//System.out.println("tocomplex: " + (double)(end-start)/1e6 + " ms.");
-
-		//start = System.nanoTime();
-		//JCufft.cufftExecC2C(_planc2c, _d_comp.getDevicePointer(), _d_comp.getDevicePointer(), JCufft.CUFFT_FORWARD);
-		//JCudaDriver.cuCtxSynchronize();
-		//end = System.nanoTime();
-		//System.out.println("fftforward: " + (double)(end-start)/1e6 + " ms.");
-
-        //...
-	//}
-
-	/**
-	 * Cleans up GPU memory and destroys FFT plan
-	 */
-	public void cleanup() {
+    /**
+     * Cleans up GPU memory and destroys FFT plan
+     */
+    public void cleanup() {
         _d_inputx.free();
         _d_inputy.free();
-		_d_x.free();
-		_d_y.free();
+        _d_x.free();
+        _d_y.free();
         for (int i=1; i<num_patterns; i++) {
             _d_x_patterns[i].free();
             _d_y_patterns[i].free();
         }
-		_d_c.free();
-		_d_peakIndex.free();
-		_d_peakValue.free();
-		_d_energy.free();
-		JCufft.cufftDestroy(_plan1);
-		JCufft.cufftDestroy(_plan2);
-	}
-
-
+        _d_c.free();
+        _d_peakIndex.free();
+        _d_peakValue.free();
+        _d_energy.free();
+        JCufft.cufftDestroy(_plan1);
+        JCufft.cufftDestroy(_plan2);
+    }
 
 }
