@@ -4,20 +4,21 @@ import numpy
 from matplotlib import pyplot
 import subprocess
 
-directory = 'kodak_db'
+directory = '../../kodak_db'
 data_dir = '../data/set_2/'
 
 def get_exif(filename):
     from fractions import Fraction
-    out, err = subprocess.Popen(['identify', '-format', '%[exif:FNumber],%[exif:ExposureTime],%[exif:ISOSpeedRatings]', directory + "/" + filename], stdout=subprocess.PIPE).communicate()
+    out, err = subprocess.Popen(['identify', '-format', '%[exif:FNumber],%[exif:ExposureTime],%[exif:ISOSpeedRatings]', filename], stdout=subprocess.PIPE).communicate()
+    print out
     return [1.0 * Fraction(x) for x in out.strip().split(',')]
 
 
 def read_image_exif_data(filelist):
     imagelist = []
-    for image in imagenamelist:
-        item = get_exif(directory + "/" + image) + "," + image
-        imagelist.append(item.split(','))
+    for image in filelist:
+        item = get_exif(directory + "/" + image) + [image, ]
+        imagelist.append(item)
     return imagelist
 
 def read_exif_from_cache(numfiles):
@@ -97,7 +98,9 @@ if __name__ == "__main__":
     numfiles = len(filelist)
 
     #exif_data = create_exif_data_cache()
-    exif_data = read_exif_from_cache(numfiles)
+    #exif_data = read_exif_from_cache(numfiles)
+    exif_data = read_image_exif_data(filelist)
+
 
     #matrix_file = 'cluster-analysis/data/set_2/matrix_304_pce.txt'
     #matrix_pce = numpy.loadtxt(matrix_file, delimiter=',', usecols=range(304))
