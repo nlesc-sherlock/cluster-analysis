@@ -46,11 +46,6 @@ import java.io.*;
  */
 public class PrnuExtractGPU {
 
-    FastNoiseFilter fastNoiseFilter;
-    ZeroMeanTotalFilter zeroMeanTotalFilter;
-    WienerFilter wienerFilter;
-    GrayscaleFilter grayscaleFilter;
-
     PRNUFilterFactory filterFactory;
     PRNUFilter filter;
 
@@ -64,49 +59,23 @@ public class PrnuExtractGPU {
     String MATRIX_BIN_FILENAME;
     String MATRIX_TXT_FILENAME;
 
-//    static final File TESTDATA_FOLDER = new File("/var/scratch/bwn200/Dresden/2748x3664");
     File TESTDATA_FOLDER;
-//    static final File TESTDATA_FOLDER = new File("/var/scratch/bwn200/PRNUtestcase");
-    static final String TEMP_DIR = "/var/scratch/bwn200/patterns/";
-//    static final String TEMP_DIR = "/var/scratch/bwn200/temp/";
+
+    //this TEMP_DIR is used by the routines for dumping and reading PRNU patterns to disk
+    //the methods for dumping and reading are currently not used since it is much faster
+    //to read the JPEG image and recompute the PRNU pattern on the GPU
+    //the methods are however occasionally used for debugging purposes
+    static final String TEMP_DIR = "";
 
     /**
-     * This method performs the PRNU pattern extraction on the CPU, it is only included
-     * here for comparison with the GPU results and performance
-     * 
-     * @param height - image height in pixels
-     * @param width - image width in pixels
-     * @param image - the input image as a BufferedImage
-     * @return pixels - float array for storing the extracted pattern
+     * This methods extracts the PRNU pattern of all the images in the dataset
+     * It fills the patternsGPU array, which is an array of PRNU patterns stored as float arrays
+     * This method has been replaced by using the PRNU pattern cach instead
+     *
+     * @param filenames     a String array containing all the filenames of the images to be compared
+     * @param patternsGPU   an array of PRNU patterns stored as float arrays, the output of this method
+     * @param input_files   an array of File objects pointing to the input files for this dataset
      */
-    private float[] extractImageCPU(BufferedImage image) {
-        long start = System.nanoTime();
-        long end = 0;
-        
-        start = System.nanoTime();
-        float[] pixels = grayscaleFilter.apply1D(image);
-        end = System.nanoTime();
-        System.out.println("grayscale image CPU: " + (end-start)/1e6 + " ms.");
-
-        start = System.nanoTime();
-        pixels = fastNoiseFilter.apply1D(pixels);
-        end = System.nanoTime();
-        System.out.println("Fast Noise Filter: " + (end-start)/1e6 + " ms.");
-
-        start = System.nanoTime();
-        pixels = zeroMeanTotalFilter.apply1D(pixels);
-        end = System.nanoTime();
-        System.out.println("Zero Mean Filter: " + (end-start)/1e6 + " ms.");
-
-        start = System.nanoTime();
-        pixels = wienerFilter.apply1D(pixels);
-        end = System.nanoTime();
-        System.out.println("Wiener Filter: " + (end-start)/1e6 + " ms.");
-        
-        return pixels;
-    }
-
-
     void extractPatterns(String[] filenames, float[][] patternsGPU, File[] input_files) {
         int numfiles = filenames.length;
         //extract patterns
@@ -122,20 +91,19 @@ public class PrnuExtractGPU {
             }
             patternsGPU[i] = filter.apply(image);
 
-          //write to cache
-          //write_float_array_to_file(patternsGPU[i], filenames[i], patternSize);
-          //patternsGPU[i] = null;
-          //read from cache 
-          //patternsGPU[i] = read_float_array_from_file(filenames[i], patternSize);
-
           input_files[i] = null;
-
         }
         long end = System.nanoTime();
         System.out.println("Read and extracted " + numfiles + " images in " + (end-start)/1e9 + " seconds.");
     }
 
-    //compute NCC scores
+    /**
+     * This method computes the NCC on the CPU scores for all images listed in filenames
+     *
+     * @param filenames     a String array containing all the filenames of the images to be compared
+     * @param patternsGPU   an array of PRNU patterns stored as float arrays, no longer in use, using cache instead
+     * @returns             a matrix containing the NCC scores for all the images in this dataset
+     */
     double[][] computeNCC(String[] filenames, float[][] patternsGPU) {
         int numfiles = filenames.length;
         double cortable[][] = new double[numfiles][numfiles];
@@ -195,11 +163,25 @@ public class PrnuExtractGPU {
         return cortable;
     }
 
-        //GPU version
+
+    /**
+     * This method computes the PCE scores on the GPU for all images in the array filenames
+     *
+     * This method uses a block-tiled loop to iterate over its iteration domain,
+     * this is to enable data reuse on the GPU and also enables data reuse in the PRNU pattern cache.
+     *
+     * @param filenames     a String array containing all the filenames of the images to be compared
+     * @param patternsGPU   an array of PRNU patterns stored as float arrays, no longer in use, using cache instead
+     * @param useRealPeak   a boolean specifying the variant of PCE to be computed, true uses real peak, false uses last pixel instead
+     * @returns             a matrix containing the PCE scores for all the images in this dataset
+     */
     double[][] computePCE(String[] filenames, float[][] patternsGPU, boolean useRealPeak) {
         int numfiles = filenames.length;
         double cortable[][] = new double[numfiles][numfiles];
 
+        //instantiate the PCE object for making comparisons
+        //this starts with obtaining the CudaModule object from the
+        //filterFactory which is misused as an interface to the compiler
         PeakToCorrelationEnergy PCE = new PeakToCorrelationEnergy(
                 this.height,
                 this.width, filterFactory.getContext(), 
@@ -207,6 +189,7 @@ public class PrnuExtractGPU {
 
         System.out.println("Comparing patterns...");
 
+        //open edgefile for writing output as and edgelist
         PrintWriter edgefile = null;
         try {
             edgefile = new PrintWriter(EDGELIST_FILENAME);
@@ -215,10 +198,11 @@ public class PrnuExtractGPU {
             System.exit(1);
         }
 
+        //the total number of comparisons is N over 2, where N is the number of files
         int total = (numfiles*numfiles)/2 - numfiles/2;
         int c = 0;
-        int cmod = 0;
-        System.out.println("     ");
+        //print a newline for the Progress prints
+        System.out.println("            "); 
 
         long start = System.nanoTime();
 
@@ -324,9 +308,8 @@ public class PrnuExtractGPU {
 
                     //check if the (globally-indexed) row is part of the to be computed domain
                     if (gi > 0 && gi < numfiles) {
-//                        xPatterns[ib] = patternsGPU[gi];
+                        //xPatterns[ib] = patternsGPU[gi];
                         xPatterns[ib] = cache.retrieve(filenames[gi]);
-                        //if (debugPrint) { System.out.println("xPatterns["+ib+"]=" + filenames[gi]); }
                     } else {
                         //if not predicate entire row
                         for (int jb=0; jb<block_size; jb++) {
@@ -341,7 +324,6 @@ public class PrnuExtractGPU {
                         if (gi < numfiles && gj < gi) {
                             //yPatterns[jb] = patternsGPU[gj];
                             yPatterns[jb] = cache.retrieve(filenames[gj]);
-                            //if (debugPrint) { System.out.println("yPatterns["+jb+"]=" + filenames[gj]); }
                             predicate[ib][jb] = true;
                             non_null++;
                         } else {
@@ -372,11 +354,7 @@ public class PrnuExtractGPU {
                 //}
 
                 c += non_null;
-//                cmod += non_null;
-//                if (cmod > 50) {
-//                    cmod -= 50;
-                    System.out.format("\r Progress: %2.2f %%", (((float)c/(float)total)*100.0));
-//                }
+                System.out.format("\r Progress: %2.2f %%", (((float)c/(float)total)*100.0));
 
                 //fill the cortable with the result
                 for (int ib=0; ib < block_size; ib++) {
@@ -394,7 +372,7 @@ public class PrnuExtractGPU {
                                 System.out.println(filenames[gi] + " " + filenames[gj] + " " + cortable[gi][gj]);
                                 double check_score_gpu = PCE.compareGPU(patternsGPU[gi], patternsGPU[gj]);
                                 double check_score_cpu = PCE.compare(patternsGPU[gi], patternsGPU[gj]);
-                                System.out.println("Verify score using one-on-one GPU: " + check_score_gpu + " CPU:" + check_score_cpu);
+                                System.out.println("Verify score using one-by-one GPU: " + check_score_gpu + " CPU:" + check_score_cpu);
                             }
 
                         }
@@ -415,17 +393,15 @@ public class PrnuExtractGPU {
 
 
     /**
-     * This is the main non-static method of this test application.
-     * It shows how the PRNUFilterFactory and PRNUFilter classes should be used.
+     * This is the main non-static method of this application.
+     * It reads the names of all the image files in the target directory
      * 
-     * After the pattern is extracted for a test image the pattern is also
-     * extracted on the CPU and the result is compared. The CPU implementation
-     * directly uses the individual filters, which is not necessary normally.
-     * 
-     * @throws IOException - an IOException is thrown when the input image cannot be read
+     * @param testcase      a String containing name for this run, given as commandline argument
+     * @param folderpath    a String containing the path to the target folder
+     * @param mode          a String specifying which metric to use, NCC, PCE, or PCE0
+     * @throws IOException - an IOException is thrown when an input image cannot be read
      */
     public void run(String testcase, String folderpath, String mode) throws IOException {
-
         long start = 0;
         long end = 0;
         
@@ -440,55 +416,58 @@ public class PrnuExtractGPU {
         int numfiles = TESTDATA_FOLDER.listFiles().length;
         File INPUT_FILES[] = new File[numfiles];
 
+        //obtain the list of files in this folder and sort them on filename
         File[] files = TESTDATA_FOLDER.listFiles();
         Arrays.sort(files, new Comparator<File>() {
             public int compare(File f1, File f2) {
                 return f1.getName().compareTo(f2.getName());
             }
         });
-
         INPUT_FILES = files;
         numfiles = files.length;
 
+        //extract the filenames from all File objects and store in String array filenames
         String[] filenames = new String[numfiles];
         for (int i=0; i<numfiles; i++) {
             filenames[i] = INPUT_FILES[i].getName();
         }
 
+        //array for storing all the patterns, currently using the pattern cache instead
         float[][] patternsGPU = new float[numfiles][];
 
+        //open one image to obtain the width and height of all images in this folder
         BufferedImage image = Util.readImage(INPUT_FILES[0]);
         this.height = image.getHeight();
         this.width = image.getWidth();
         System.out.println("Image size: " + this.height + "x" + this.width);
 
+        //create the filterfactory, this compiles the CUDA modules that are part of PRNUFilter
         this.filter = filterFactory.createPRNUFilter(image.getHeight(), image.getWidth());
-
-        int patternSize = height*width;
 
         //either extract all patterns here or use cache
         //extractPatterns(filenames, patternsGPU, INPUT_FILES);
         //free resources on the GPU
         //filter.cleanup();
 
-
-        //clear up some stuff
+        //clear up some memory of stuff we no longer need
         image = null;
         for (int i=0; i<numfiles; i++) {
             INPUT_FILES[i] = null;
         }
         System.gc();
 
-        //use cache instead
+        //use cache instead of extracting all patterns
         cache = new PrnuPatternCache(height, width, filter, folderpath);
+
+        //populate the cache with the first n patterns where n is the size of the cache
         start = System.nanoTime();
         cache.populate(filenames);
         end = System.nanoTime();
         System.out.println("Populating the cache took " + (end-start)/1e9 + " seconds.");
 
-
         double cortable[][];
 
+        //depending on the mode call the appropiate routine for computing the similarity metric
         switch (mode) {
             case "NCC":
                 cortable = computeNCC(filenames, patternsGPU);
@@ -503,18 +482,28 @@ public class PrnuExtractGPU {
                 throw new IllegalArgumentException("Invalid mode use NCC|PCE|PCE0: " + mode);
         }
 
-        //print results
+        //write the correlation matrix to disk in binary and text form
         write_matrix_text(cortable);
         write_matrix_binary(cortable);
 
     }
 
-    public static boolean containsIllegals(String toExamine) {
+
+    /**
+     * Simple helper function to detect certain characters that would 
+     * be illegal to use for filenames in most file systems
+     *
+     * @param toExamine     the string to examine
+     */
+    private static boolean containsIllegals(String toExamine) {
         String[] arr = toExamine.split("[~#@*+%{}<>\\[\\]|\"\\_^]", 2);
         return arr.length > 1;
     }
 
-    public static void printUsage() {
+    /**
+     * Simple method that prints the expected usage of the program through the commandline and exits
+     */ 
+    private static void printUsage() {
         System.out.println("Usage: <program-name> [testcase] [folderpath] [mode]");
         System.out.println("    testcase is the name you give to this run");
         System.out.println("    folderpath is the path to the folder containing images");
@@ -522,8 +511,10 @@ public class PrnuExtractGPU {
         System.exit(0);
     }
 
+    /**
+     * The main routine, it checks the commandline arguments and then calls the non-static run()
+     */
     public static void main(final String[] args) throws IOException {
-
         if (args.length != 3) {
             printUsage();
         }
@@ -551,148 +542,109 @@ public class PrnuExtractGPU {
     }
 
 
-        //dump matrix
-void write_matrix_binary(double[][] cortable) {
-   int numfiles = cortable[0].length;
-
-   try{
-    FileOutputStream fos = new FileOutputStream(MATRIX_BIN_FILENAME); 
-    DataOutputStream dos = new DataOutputStream(fos);
-    for (int i=0; i<numfiles; i++) {
-        for (int j=0; j<numfiles; j++) {
-                dos.writeDouble(cortable[i][j]);
+    /**
+     * This method writes a correlation matrix to a binary file
+     * The location of the text file is determined by the name of the testcase set by the user
+     * Note that Java writes its doubles in big endian
+     * 
+     * @param cortable a double matrix, with equal width and height, storing the results of a computation of a similarity metric or correlation
+     */
+    void write_matrix_binary(double[][] cortable) {
+        int numfiles = cortable[0].length;
+        try{
+            FileOutputStream fos = new FileOutputStream(MATRIX_BIN_FILENAME); 
+            DataOutputStream dos = new DataOutputStream(fos);
+            for (int i=0; i<numfiles; i++) {
+                for (int j=0; j<numfiles; j++) {
+                     dos.writeDouble(cortable[i][j]);
+                }
             }
+        } catch (Exception ex) {
+            System.err.println(ex.getMessage());
         }
+    }
 
-    /*
-        RandomAccessFile aFile = new RandomAccessFile("/var/scratch/bwn200/matrix.dat", "rw");
-        FileChannel outChannel = aFile.getChannel();
-
-        //one float 3 bytes
-        ByteBuffer buf = ByteBuffer.allocate(8*numfiles*numfiles);
-        buf.clear();
-    DoubleBuffer db = buf.asDoubleBuffer();
-    for (int i=0; i<numfiles; i++) {
-        for (int j=0; j<numfiles; j++) {
-                db.put(cortable[j][i]);
+    /**
+     * This method writes a correlation matrix to a text file
+     * The location of the text file is determined by the name of the testcase set by the user
+     * 
+     * @param cortable a double matrix, with equal width and height, storing the results of a computation of a similarity metric or correlation
+     */
+    void write_matrix_text(double[][] cortable) {
+        int numfiles = cortable[0].length;
+        try {
+            //System.out.println("PCE Scores:");
+            PrintWriter textfile = new PrintWriter(MATRIX_TXT_FILENAME);
+            for (int i=0; i<numfiles; i++) {
+                for (int j=0; j<numfiles; j++) {
+                    //System.out.format("%.6f, ", cortable[i][j]);
+                    textfile.format("%.6f, ", cortable[i][j]);
+                }
+                //System.out.println();
+                textfile.println();
             }
+            //System.out.println();
+            textfile.println();
+            textfile.close();
+        } catch (Exception ex) {
+            System.err.println(ex.getMessage());
         }
-
-    db.rewind();
-        outChannel.write(buf);
-        outChannel.close();
-    */
-    }
-    catch (Exception ex) {
-        System.err.println(ex.getMessage());
     }
 
-}
+    /**
+     * This method writes a PRNU pattern to a file on disk
+     *
+     * This method is now only used for debugging purposes because it is much
+     * faster to read the JPEG and recompute the PRNU pattern than reading a
+     * stored pattern from disk.
+     *
+     * @param array     a float array containing the PRNU pattern
+     * @param filename  a string containing the name of the JPG file, its current extension will be replaced with '.dat'
+     * @param size      the size of the PRNU pattern
+     */
+    void write_float_array_to_file(float[] array, String filename, int size) {
+        String file = TEMP_DIR + filename.substring(0, filename.lastIndexOf('.')) + ".dat";
 
-
-  void write_matrix_text(double[][] cortable) {
-    int numfiles = cortable[0].length;
-    try{
-    //System.out.println("PCE Scores:");
-
-    PrintWriter textfile = new PrintWriter(MATRIX_TXT_FILENAME);
-    for (int i=0; i<numfiles; i++) {
-      for (int j=0; j<numfiles; j++) {
-        //System.out.format("%.6f, ", cortable[i][j]);
-        textfile.format("%.6f, ", cortable[i][j]);
-      }
-      //System.out.println();
-      textfile.println();
-    }
-    //System.out.println();
-    textfile.println();
-    textfile.close();
-    }
-    catch (Exception ex) {
-        System.err.println(ex.getMessage());
-    }
-  }
-
-
-  void write_float_array_to_file(float[] array, String filename, int size) {
-    /*
-        RandomAccessFile aFile = new RandomAccessFile(TEMP_DIR + filename.substring(0, filename.lastIndexOf('.')) +  ".dat", "rw");
-        FileChannel outChannel = aFile.getChannel();
-
-        ByteBuffer buf = ByteBuffer.allocate(size);
-        buf.clear();
-    buf.asFloatBuffer().put(array);
-
-        //while(buf.hasRemaining()) 
-        {
-            outChannel.write(buf);
-        }
-
-        outChannel.close();
-    */
-    String file = TEMP_DIR + filename.substring(0, filename.lastIndexOf('.')) + ".dat";
-
-    try {
-      DataOutputStream out = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(file)));
+        try {
+            DataOutputStream out = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(file)));
  
-      for (int i=0;i<size;i++) {
-           out.writeFloat(array[i]);
-      }
-
-      out.close();
-
-    }
-    catch (IOException ex) {
-        System.err.println(ex.getMessage());
-    }
-
-  }
-
-
-float[] read_float_array_from_file(String filename, int size) {
-
-    /*
-        RandomAccessFile aFile = new RandomAccessFile(TEMP_DIR + filename.substring(0, filename.lastIndexOf('.')) +  ".dat", "rw");
-        FileChannel inChannel = aFile.getChannel();
-
-        ByteBuffer buf = ByteBuffer.allocate(size);
-        buf.clear();
-
-        while(buf.hasRemaining())
-        {
-            inChannel.read(buf);
+            for (int i=0;i<size;i++) {
+                out.writeFloat(array[i]);
+            }
+            out.close();
         }
-
-        inChannel.close();
-        float[] result = new float[size/4];
-        buf.rewind();
-
-        FloatBuffer fbuf = buf.asFloatBuffer();
-
-        fbuf.get(result);
-
-        return result;
-    */
-    String file = TEMP_DIR + filename.substring(0, filename.lastIndexOf('.')) + ".dat";
-
-    try{
-        DataInputStream in = new DataInputStream(new BufferedInputStream(new FileInputStream(file)));
-
-        float [] result = new float[size];
-
-        for (int i=0;i<size;i++) {
-            result[i] = in.readFloat();
-        }    
-
-        return result;
-    }
-    catch (IOException ex) {
-        System.err.println(ex.getMessage());
+        catch (IOException ex) {
+            System.err.println(ex.getMessage());
+        }
     }
 
-    return null;
+    /**
+     * This method reads a PRNU pattern from a file on disk
+     *
+     * This method is now only used for debugging purposes because it is much
+     * faster to read the JPEG and recompute the PRNU pattern than reading a
+     * stored pattern from disk.
+     *
+     * @param filename  the name of the JPEG file whose PRNU pattern we are now fetching from disk
+     * @param size      the size of the PRNU pattern in the number of floats
+     * @returns         a float array containing the PRNU pattern
+     */
+    float[] read_float_array_from_file(String filename, int size) {
+        String file = TEMP_DIR + filename.substring(0, filename.lastIndexOf('.')) + ".dat";
 
-}
+        try{
+            DataInputStream in = new DataInputStream(new BufferedInputStream(new FileInputStream(file)));
+            float [] result = new float[size];
+            for (int i=0;i<size;i++) {
+                result[i] = in.readFloat();
+            }    
+            return result;
+        }
+        catch (IOException ex) {
+            System.err.println(ex.getMessage());
+        }
+        return null;
+    }
 
 
 
