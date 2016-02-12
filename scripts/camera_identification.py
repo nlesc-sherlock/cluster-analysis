@@ -9,23 +9,29 @@ import exif
 import scipy.cluster.hierarchy as sch
 from sklearn import metrics
 
+directory = "../data"
+
+
 max_pce = 60.0
 max_ncc = 0.02
 
 
-def plot_distance_matrices(matrix1, matrix2, matrix3):
-    f, (ax1, ax2, ax3) = pyplot.subplots(nrows=1, ncols=3, sharex=True, sharey=True)
+def plot_distance_matrices(matrix1, matrix2, matrix3, matrix4):
+    f, ((ax1, ax2), (ax3, ax4)) = pyplot.subplots(nrows=2, ncols=2, sharex=True, sharey=True)
     ax1.set_adjustable('box-forced')
     ax2.set_adjustable('box-forced')
     ax3.set_adjustable('box-forced')
+    ax4.set_adjustable('box-forced')
 
     vmax = matrix1.max()
     ax1.imshow(matrix1, vmin=0.0, vmax=vmax)
-    ax1.set_title("PCE distance")
+    ax1.set_title("NCC distance")
     ax2.imshow(matrix2, vmin=0.0, vmax=vmax)
-    ax2.set_title("NCC distance")
+    ax2.set_title("PCE distance")
     ax3.imshow(matrix3, vmin=0.0, vmax=vmax)
-    ax3.set_title("Combined distance")
+    ax3.set_title("PCE0 distance")
+    ax4.imshow(matrix4, vmin=0.0, vmax=vmax)
+    ax4.set_title("Ground truth")
 
     size = matrix3.shape[0]
     def hover_func(x, y):
@@ -40,7 +46,9 @@ def plot_distance_matrices(matrix1, matrix2, matrix3):
     ax1.format_coord = hover_func
     ax2.format_coord = hover_func
     ax3.format_coord = hover_func
-    f.set_size_inches(18, 6, forward=True)
+    ax4.format_coord = hover_func
+    f.set_size_inches(10, 10, forward=True)
+    f.tight_layout()
     pyplot.show()
     raw_input()
 
@@ -84,7 +92,7 @@ def map_ncc_scores_to_pce_domain(matrix_pce, matrix_ncc):
     return matrix_pce, matrix_ncc
 
 def convert_similarity_to_distance(matrix):
-    #cut off too high values
+    #cut off too high values, the idea is that if it exceeds this threshold it is a hit anyway
     matrix[matrix > max_pce] = max_pce
     matrix[matrix < 0.0] = 0.0
 
@@ -128,28 +136,55 @@ def print_metrics(true_clustering, cluster):
     print "homogeneity, completeness, v measure [0.0 (bad) to 1.0 (good)]\n", metrics.homogeneity_completeness_v_measure(true_clustering, cluster)
 
 
+def get_ground_truth():
+    filelist = numpy.loadtxt(directory + "/filelist.txt", dtype=numpy.string_)
+    numfiles = filelist.size
+    matrix_ans = numpy.zeros([numfiles,numfiles], dtype=numpy.float)
+    for i in range(numfiles):
+        for j in range(numfiles):
+            cam1 = "_".join(filelist[i].split("_")[:-1])
+            cam2 = "_".join(filelist[j].split("_")[:-1])
+            if cam1 == cam2:
+                matrix_ans[i][j] = 1.0
+            else:
+                matrix_ans[i][j] = 100.0
+            if i == j:
+                matrix_ans[i][j] = 0.0
+    return matrix_ans
+
+
+
 
 if __name__ == "__main__":
 
+    import sys
+    if len(sys.argv) != 2:
+        print "Usage: ./camera_identification <name-of-dataset>"
+        exit()
+    import os
+    if not os.path.isdir(directory + "/" + sys.argv[1]):
+        print "incorrect dataset name, cannot find " + directory + "/" + sys.argv[1]
+        exit()
+
+    dataset = sys.argv[1]
+    directory = directory + "/" + dataset
+
     #load the distance matrixes from files
-    matrix_pce = numpy.fromfile("../data/set_2/matrix_304_pce.dat", dtype='>d')
-    matrix_ncc = numpy.fromfile("../data/set_2/matrix_304_ncc.dat", dtype=numpy.float)
-#    matrix_pce = numpy.fromfile("../data/set_3/matrix_80_pce.dat", dtype='>d')
-#    matrix_ncc = numpy.fromfile("../data/set_3/matrix_80_ncc.dat", dtype='>d')
+    matrix_pce = numpy.fromfile(directory + "/matrix-" + dataset + "-pce.dat", dtype='>d')
+    matrix_pce0 = numpy.fromfile(directory + "/matrix-" + dataset + "-pce0.dat", dtype='>d')
+    matrix_ncc = numpy.fromfile(directory + "/matrix-" + dataset + "-ncc.dat", dtype='>d')
 
     matrix_pce, matrix_ncc = map_ncc_scores_to_pce_domain(matrix_pce, matrix_ncc)
     matrix_ncc = convert_similarity_to_distance(matrix_ncc)
     matrix_pce = convert_similarity_to_distance(matrix_pce)
+    matrix_pce0 = convert_similarity_to_distance(matrix_pce0)
 
-    matrix = combine_pce_and_ncc_distances(matrix_pce, matrix_ncc)
-    #import pylab
-    #pylab.hist(matrix_pce.ravel(), 200, label='PCE')
-    #pylab.hist(matrix_ncc.ravel(), 200, label='NCC')
-    #pylab.hist(matrix.ravel(), 200, label='Combined')
-    #pylab.legend()
-    #pylab.show()
-    plot_distance_matrices(matrix_pce, matrix_ncc, matrix)
+    matrix_ans = get_ground_truth()
+    plot_distance_matrices(matrix_ncc, matrix_pce, matrix_pce0, matrix_ans)
 
+
+    #set metric to use for clustering
+    matrix = matrix_pce
 
 
     #hierarchical clustering part starts here
@@ -160,17 +195,20 @@ if __name__ == "__main__":
     #    linkage = sch.linkage(matrix, method=method)
 
 
+    threshold = 0.7*linkage[:,2].max() # default threshold used in sch.dendogram is 0.7*linkage[:,2].max()
+
+
     #dendrogram = dendro.compute_dendrogram(linkage)
-    dendrogram = dendro.plot_dendrogram_and_matrix(linkage, matrix)
+    dendrogram = dendro.plot_dendrogram_and_matrix(linkage, matrix, color_threshold=threshold)
 
 
     #compute flat clustering in the exact same way as sch.dendogram colors the clusters
-    threshold = 0.7*linkage[:,2].max() # default threshold used in sch.dendogram
     cluster = numpy.array(sch.fcluster(linkage, threshold, criterion='distance'), dtype=numpy.int)
+    numpy.set_printoptions(threshold=numpy.nan) # make numpy print the full array
     print "flat clustering:\n", cluster
 
     #get the actual clustering
-    filelist = numpy.loadtxt("../data/set_2/filelist.txt", dtype=numpy.string_)
+    filelist = numpy.loadtxt(directory + "/filelist.txt", dtype=numpy.string_)
     true_clustering = ["_".join(s.split("_")[:-1]) for s in filelist]
     true_clusters = sorted(set(true_clustering))
     true_labels = numpy.array([true_clusters.index(id) for id in true_clustering], dtype=numpy.int)
@@ -180,30 +218,6 @@ if __name__ == "__main__":
     print_metrics(true_labels, cluster)
 
 
-
-    """
-
-
-    numfiles = int(numpy.sqrt(matrix.size))
-    exif_data = exif.read_exif_from_cache(numfiles)
-    exif_unclustered = exif_data[cluster == 6]
-    exif_all = exif_data[:]
-    exif_clustered = exif_data[cluster != 6]
-
-    numpy.set_printoptions(precision=5, suppress=True)
-    print "exif unclustered", exif_unclustered
-    print "exif clustered", exif_clustered
-
-
-    import pylab
-    pylab.figure()
-    pylab.hist(exif_unclustered[:,2], exif_unclustered[:,2].max()-exif_unclustered[:,2].min(), label='unclustered iso')
-    pylab.hist(exif_clustered[:,2], exif_clustered[:,2].max()-exif_clustered[:,2].min(), label='clustered iso')
-    pylab.legend()
-    pylab.show()
-
-
-    """
 
 
     #go interactive
