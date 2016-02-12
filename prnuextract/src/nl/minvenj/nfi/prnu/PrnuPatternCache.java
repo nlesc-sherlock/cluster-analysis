@@ -24,16 +24,43 @@ import nl.minvenj.nfi.prnu.filtergpu.*;
 import nl.minvenj.nfi.prnu.Util;
 
 
+
+/**
+ * This class implements a simple cache for PRNU patterns
+ * It currently uses a least recently used scheme for eviction
+ *
+ * @author Ben van Werkhoven <b.vanwerkhoven@esciencecenter.nl>
+ */
 public class PrnuPatternCache {
 
+    //number of patterns stored in the cache
     int numPatterns = 0;
 
+    //counter that is increased with each retrieval of a pattern
     long counter = 0;
+
+    //map that stores the cacheitems based on their associated image filename
     HashMap<String, cacheItem> cache;
 
+    //a reference to the PRNUfilter class for retrieving patterns currently not in the cache
     PRNUFilter filter;
+
+    //path to the folder containing the images
     String path;
 
+    /**
+     * Constructor of the PRNU pattern cache
+     * 
+     * This method also determines the number of patterns that can be stored in the cache based
+     * on the amount of memory currently available to the JVM. It will attempt to eat up all the
+     * available memory except for the last 5GB, to leave some memory to work with to the rest
+     * of the application.
+     *
+     * @param h         height of the images
+     * @param w         width of the images
+     * @param filter    reference to PRNUFilter object that is used to extract PRNU patterns from images
+     * @param path      String containing the path to the folder containing the images
+     */
     public PrnuPatternCache(int h, int w, PRNUFilter filter, String path) {
         this.filter = filter;
         this.path = path;
@@ -41,8 +68,8 @@ public class PrnuPatternCache {
         int patternSizeBytes = h * w * 4;
         System.out.println("pattern size = " + patternSizeBytes + " in MB: " + (patternSizeBytes/1024/1024));
 
+        //obtain info about the amount of memory available
         Runtime runtime = Runtime.getRuntime();
-
         long totalSpace = runtime.totalMemory();
         long maxSpace = runtime.maxMemory();
         long freeSpace = runtime.freeMemory();
@@ -66,12 +93,17 @@ public class PrnuPatternCache {
 
         this.numPatterns = fitPatterns;
 
+        //create a map for storing the cacheItem objects
+        //initial capacity is the number of patterns in the cache
+        //the load factor is set so that the HashMap won't grow automatically
         cache = new HashMap<String, cacheItem>(numPatterns, 1.1f);
     }
 
-    /*
-     * Retrieve the pattern belonging to filename from the cache
-     * If the pattern is not yet in the cache, the pattern will be retrieved and stored in the cache
+    /**
+     * Retrieve the pattern belonging to the image filename from the cache
+     * If the pattern is not yet in the cache, the pattern will be recomputed and stored in the cache
+     * 
+     * @param filename  a String containing the name of the image to which the pattern we want to retrieve belongs
      */
     float[] retrieve(String filename) {
         cacheItem item = cache.get(filename);
@@ -92,16 +124,23 @@ public class PrnuPatternCache {
         return item.getPattern();
     }
 
-    /*
+    /**
      * Populate the cache with up to numPatterns patterns from the filenames
+     *
+     * @param filenames     a String array containing the filenames of the images whose PRNU patterns should be in the cache
      */
     void populate(String[] filenames) {
         populate(filenames, numPatterns);
     }
-    /*
+
+    /**
      * Populate the cache with up to n patterns
-     * This method stops when the filenames to include run out or when
+     *
+     * This method stops when n patterns are include, the filenames to include run out, or when
      * the cache reaches its limit, whichever comes first.
+     *
+     * @param filenames     a String array containing the filenames of the images whose PRNU patterns should be in the cache
+     * @param n             the number of PRNU patterns to populate the cache with      
      */
     void populate(String[] filenames, int n) {
         for (int i = 0; i < n && i < filenames.length && cache.size() < numPatterns; i++) {
@@ -118,8 +157,8 @@ public class PrnuPatternCache {
         }
     }
 
-    /*
-     * Evict the least recently used pattern from the cache
+    /**
+     * Evict the least recently used pattern from the cache using a least recently used policy
      */
     void evict() {
         long lru = Long.MAX_VALUE;
@@ -139,7 +178,7 @@ public class PrnuPatternCache {
 
 
 
-    /*
+    /**
      * Simple class to hold the float array containing the pattern and the last use counter
      */
     private class cacheItem {
@@ -147,6 +186,12 @@ public class PrnuPatternCache {
         public long used;
         public float[] pattern;
 
+        /**
+         * Constructs a cacheItem based on a filename of an image
+         * The PRNU pattern of the image is extracted and stored in this cacheItem
+         *
+         * @param filename      a String containing the filename of the image
+         */
         cacheItem(String filename) {
 
             File f = new File(path + "/" + filename);
@@ -162,6 +207,12 @@ public class PrnuPatternCache {
             pattern = filter.apply(image);
         }
 
+        /**
+         * Getter for the PRNU pattern
+         * also increases the least recently used counter
+         *
+         * @returns     a float array containing the PRNU pattern
+         */
         float[] getPattern() {
             used = counter++;
             return pattern;

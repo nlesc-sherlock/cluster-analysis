@@ -37,12 +37,11 @@ import java.util.Arrays;
 import java.io.*;
 
 
-
 /**
- * PrnuExtractGPU is a test application for the PRNU filter pipeline.
+ * PrnuExtractGPU is an application for extracting and comparing PRNU filters.
  * 
  * @author Ben van Werkhoven <b.vanwerkhoven@esciencecenter.nl>
- * @version 0.1
+ * @version 0.2
  */
 public class PrnuExtractGPU {
 
