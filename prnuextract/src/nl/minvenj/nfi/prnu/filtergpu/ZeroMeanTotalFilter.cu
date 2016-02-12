@@ -51,9 +51,9 @@ extern "C" {
  * blockDim.y (ZMBLOCK_Y) = power of 2
  * blockDim.x (ZMBLOCK_X) = multiple of 32
  */
-#define ZMBLOCK_Y 16
-#define ZMBLOCK_X 32
-__global__ void computeMeanVertically(int h, int w, float* input) {
+#define ZMBLOCK_Y 1
+#define ZMBLOCK_X 256
+__global__ void computeMeanVertically_opt(int h, int w, float* input) {
 	int j = threadIdx.x + blockIdx.x * blockDim.x;
 	int ti = threadIdx.y;
 	int tj = threadIdx.x;
@@ -102,6 +102,37 @@ __global__ void computeMeanVertically(int h, int w, float* input) {
 		}
 	}
 }
+__global__ void computeMeanVertically(int h, int w, float* input) {
+	int j = threadIdx.x + blockIdx.x * blockDim.x;
+
+	if (j < w) {
+		float sumEven = 0.0f;
+		float sumOdd = 0.0f;
+
+		//iterate over vertical domain
+		for (int i = 0; i < h-1; i += 2) {
+			sumEven += input[i*w+j];
+			sumOdd += input[(i+1)*w+j];
+		}
+		if (h & 1) { //if h is odd
+			sumEven += input[(h-1)*w+j];
+		}
+
+		//compute means
+		float meanEven = sumEven / ((h + 1) / 2);
+		float meanOdd = sumOdd / (h / 2);
+
+		//iterate over vertical domain
+		for (int i = 0; i < h-1; i += 2) {
+			input[i*w+j] -= meanEven;
+			input[(i+1)*w+j] -= meanOdd;
+		}
+		if (h & 1) { //if h is odd
+			input[(h-1)*w+j] -= meanEven;
+		}
+	}
+}
+
 
 
 /*

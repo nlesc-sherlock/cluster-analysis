@@ -37,12 +37,14 @@ import org.apache.commons.io.IOUtils;
 public class PRNUFilterFactory {
 
 	private static final String[] filenames = { "GrayscaleFilter.cu", "FastNoiseFilter.cu", "ZeroMeanTotalFilter.cu", "WienerFilter.cu"};
-	private static final String architecture = "compute_20";
-	private static final String capability = "sm_20";
+	private static String architecture = "compute_20";
+	private static String capability = "sm_20";
 	
 	private CudaContext _context;
 	private CudaModule[] modules;
-	
+
+    private boolean _fmad = true;	
+
 	/**
 	 * Instantiates the factory to compile the CUDA source files, do this
 	 * only once per application run
@@ -65,30 +67,45 @@ public class PRNUFilterFactory {
 		final CudaDevice device = CudaDevice.getBestDevice();
 		System.out.println("Using GPU: " + device);
 		_context = device.createContext();
+        _fmad = fmad;
+
+        int cc[] = device.getMajorMinor();
+        this.architecture = "compute_" + cc[0] + "" + cc[1];
+        this.capability = "sm_" + cc[0] + "" + cc[1];
 
 		modules = new CudaModule[filenames.length];
 		
 		for (int i = 0; i < filenames.length; i++) {
-			//read the CUDA source file into a string
-			String source = "";
-			try {
-				source = IOUtils.toString(FastNoiseFilter.class.getResource(filenames[i]));
-			} catch (Exception e) {
-				e.printStackTrace();
-				System.exit(1);
-			}
-			
-			//compile the CUDA code to run on the GPU
-			if (fmad) {
-				modules[i] = _context.loadModule(source, "-gencode=arch=" + architecture + ",code=" +
-						capability, "-Xptxas=-v");
-			} else {
-				modules[i] = _context.loadModule(source, "-gencode=arch=" + architecture + ",code=" +
-						capability, "-Xptxas=-v", "--fmad=false");
-			}
+            modules[i] = compile(filenames[i]);
 		}
 		
 	}
+
+    /**
+     * Helper function that compiles a CUDA file and returns a CudaModule instance
+     */
+    public CudaModule compile(String filename) {
+        //read the CUDA source file into a string
+		String source = "";
+		try {
+			source = IOUtils.toString(FastNoiseFilter.class.getResource(filename));
+		} catch (Exception e) {
+			e.printStackTrace();
+			System.exit(1);
+		}
+			
+		//compile the CUDA code to run on the GPU
+        CudaModule module;
+		if (_fmad) {
+			module = _context.loadModule(source, "-gencode=arch=" + architecture + ",code=" +
+					capability, "-Xptxas=-v");
+		} else {
+			module = _context.loadModule(source, "-gencode=arch=" + architecture + ",code=" +
+					capability, "-Xptxas=-v", "--fmad=false");
+		}
+        return module;
+    }
+
 
 	/**
 	 * This method creates a PRNUFilter for a specified image size,
@@ -103,6 +120,13 @@ public class PRNUFilterFactory {
 	 */
     public PRNUFilter createPRNUFilter(int height, int width) {
     	return new PRNUFilter(height, width, _context, modules);
+    }
+
+    /**
+     * Return CUDA context
+     */
+    public CudaContext getContext() {
+        return _context;
     }
     
     /**

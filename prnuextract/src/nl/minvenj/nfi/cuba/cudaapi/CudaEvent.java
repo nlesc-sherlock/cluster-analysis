@@ -15,7 +15,7 @@ import jcuda.driver.CUevent_flags;
 public class CudaEvent {
     private final CUevent _event;
 
-    CudaEvent() {
+    public CudaEvent() {
         _event = new CUevent();
 
         cuEventCreate(_event, CUevent_flags.CU_EVENT_DISABLE_TIMING);
@@ -23,6 +23,10 @@ public class CudaEvent {
 
     public void record(final CudaStream stream) {
         cuEventRecord(_event, stream.cuStream());
+    }
+
+    public CUevent cuEvent() {
+        return _event;
     }
 
     public void synchronize() {

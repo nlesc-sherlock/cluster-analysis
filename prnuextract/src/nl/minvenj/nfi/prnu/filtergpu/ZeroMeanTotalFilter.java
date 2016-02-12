@@ -68,9 +68,9 @@ public class ZeroMeanTotalFilter {
 
 		// Setup cuda functions
 		_computeMeanVertically = module.getFunction("computeMeanVertically");
-		final int ZMThreads_x = 32;
-		final int ZMThreads_y = 16;
-		_computeMeanVertically.setDim((int)Math.ceil((float)w / (float)ZMThreads_x), 1, 1,
+		final int ZMThreads_x = 256; //32
+		final int ZMThreads_y = 1;  //16
+		_computeMeanVertically.setDim((int)Math.ceil((float)Math.max(w,h) / (float)ZMThreads_x), 1, 1,
 				ZMThreads_x, ZMThreads_y, 1);
 		_transpose = module.getFunction("transpose");
 		final int TThreads_x = 16;
@@ -204,6 +204,9 @@ public class ZeroMeanTotalFilter {
 	 * vertically and transposes in between.
 	 */
 	public void applyGPU() {
+
+        //zero d_output just in case
+        //_d_output.memset(0, w*h, _stream);
 		
 		//apply zero mean filter vertically
 		_computeMeanVertically.launch(_stream, computeMeanVerticallyCol);

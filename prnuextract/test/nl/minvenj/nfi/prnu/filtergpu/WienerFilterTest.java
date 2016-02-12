@@ -20,6 +20,8 @@ import static org.junit.Assert.*;
 import java.awt.image.BufferedImage;
 
 import jcuda.jcufft.JCufft;
+import jcuda.driver.*;
+
 import nl.minvenj.nfi.prnu.PrnuExtract;
 import nl.minvenj.nfi.prnu.Util;
 import nl.minvenj.nfi.prnu.filtergpu.WienerFilter;
@@ -66,7 +68,10 @@ public class WienerFilterTest {
 
 		//copy GPU result to host memory
 		pixels = new float[image.getHeight()*image.getWidth()];
-		filter.getZeroMeanTotalFilter()._d_input.copyDeviceToHost(pixels, image.getHeight()*image.getWidth());
+        JCudaDriver.cuCtxSynchronize();
+		filter.getZeroMeanTotalFilter()._d_input.copyDeviceToHost(pixels, pixels.length);
+        JCudaDriver.cuCtxSynchronize();
+
 	}
 
 	@Ignore
@@ -108,15 +113,28 @@ public class WienerFilterTest {
 	
 	@Test
 	public void computeSquaredMagnitudesTest() {
+        boolean testNaN = Util.compareArray(pixels, pixels, 10f);
+        if (!testNaN) { System.err.println("Input array before we did anything contains NaNs"); }
+        assertTrue(testNaN);
+
+        //copy input to GPU
+        wienerFilter._d_input.copyHostToDevice(pixels, pixels.length);
+
 		//convert values from real to complex
 		wienerFilter._tocomplex.launch(wienerFilter._stream, wienerFilter.toComplex);
 		
 		//apply complex to complex forward Fourier transform
+        JCudaDriver.cuCtxSynchronize();
 		JCufft.cufftExecC2C(wienerFilter._planc2c, wienerFilter._d_comp.getDevicePointer(), wienerFilter._d_comp.getDevicePointer(), JCufft.CUFFT_FORWARD);
+        JCudaDriver.cuCtxSynchronize();
 
 		//copy FFT output to host memory
 		float[] complex = new float[pixels.length*2];
 		wienerFilter._d_comp.copyDeviceToHost(complex, complex.length);
+
+        testNaN = Util.compareArray(complex, complex, 10f);
+        if (!testNaN) { System.err.println("GPU result after cuFFT contains NaNs"); }
+        assertTrue(testNaN);
 
 		//compute frequencies squared and store as real on the GPU
 		wienerFilter._computeSquaredMagnitudes.launch(wienerFilter._stream, wienerFilter.sqmag);
@@ -139,7 +157,9 @@ public class WienerFilterTest {
 		wienerFilter._tocomplex.launch(wienerFilter._stream, wienerFilter.toComplex);
 		
 		//apply complex to complex forward Fourier transform
+        JCudaDriver.cuCtxSynchronize();
 		JCufft.cufftExecC2C(wienerFilter._planc2c, wienerFilter._d_comp.getDevicePointer(), wienerFilter._d_comp.getDevicePointer(), JCufft.CUFFT_FORWARD);
+        JCudaDriver.cuCtxSynchronize();
 
 		//compute frequencies squared and store as real on the GPU
 		wienerFilter._computeSquaredMagnitudes.launch(wienerFilter._stream, wienerFilter.sqmag);
@@ -147,6 +167,10 @@ public class WienerFilterTest {
 		//copy GPU result to host memory
 		float[] squaredMagnitudes = new float[pixels.length];
 		wienerFilter._d_sqmag.copyDeviceToHost(squaredMagnitudes, squaredMagnitudes.length);
+
+        //test to see if squaredMagnitues does not contain NaN values
+		boolean testNaN = Util.compareArray(squaredMagnitudes, squaredMagnitudes, 0.0001f);
+        assertTrue (testNaN);
 		
 		//estimate local variances and keep the mimimum
 		float[] varianceEstimates = WienerFilter.computeVarianceEstimates(wienerFilter.h, wienerFilter.w, squaredMagnitudes);

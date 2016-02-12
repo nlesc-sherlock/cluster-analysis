@@ -122,9 +122,11 @@ public class Util {
 			float diff1 = Math.abs(actual[i] - expected[i])/expected[i];
 			float diff2 = Math.abs(actual[i] - expected[i])/actual[i];
 			float diff = Math.max(diff1, diff2);
+            int distance = Float.floatToRawIntBits(actual[i]) - Float.floatToRawIntBits(expected[i]);
+
 			//if (Math.abs(actual[i] - expected[i]) > delta) {
 			if (diff > delta) {
-				System.err.println("value at " + i + " is " + actual[i] + " should have been " + expected[i] + " diff is " + diff );
+				System.err.println("value at " + i + " is " + actual[i] + " should have been " + expected[i] + " diff is " + diff + " distance: " + distance);
 				numerr++;
 			}
 			if (Float.isNaN(actual[i])) {
@@ -135,10 +137,10 @@ public class Util {
 				System.err.println("value at " + i + " is " + actual[i] + " should have been " + expected[i]);
 				numerr++;
 			}
-			if (Math.abs(actual[i]) < delta) {
+			if (Math.abs(actual[i]) < 1e-32f) {
 				zeroActual++;
 			}
-			if (Math.abs(expected[i]) < delta) {
+			if (Math.abs(expected[i]) < 1e-32f) {
 				zeroExpected++;
 			}
 		}
@@ -150,6 +152,7 @@ public class Util {
 			return false;
 		}
 		if (numerr > 0) {
+            System.err.println("Total number of errors: " + numerr);
 			return false;
 		}
 

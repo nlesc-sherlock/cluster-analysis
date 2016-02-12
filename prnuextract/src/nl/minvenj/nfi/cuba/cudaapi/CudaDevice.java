@@ -15,18 +15,21 @@ import jcuda.driver.CUdevice_attribute;
 import jcuda.driver.CUdevprop;
 import jcuda.driver.JCudaDriver;
 import jcuda.runtime.JCuda;
+import jcuda.runtime.cudaDeviceProp;
 
 public final class CudaDevice {
     private final CUdevice _device;
+    int device_id;
 
     CudaDevice(final int ordinal) {
         _device = new CUdevice();
+        this.device_id = ordinal;
 
         cuDeviceGet(_device, ordinal);
     }
 
     public CudaContext createContext() {
-        return new CudaContext(_device);
+        return new CudaContext(_device, this);
     }
 
     public void setSharedMemConfig(final int config) {
@@ -48,13 +51,34 @@ public final class CudaDevice {
 
     public static CudaDevice getBestDevice() {
         initialize();
-        // FIXME: this will simply create the first (any) device, not necessarily the best device!
-        return new CudaDevice(0);
+
+        final int[] count = new int[1];
+        cuDeviceGetCount(count);
+
+        //selecting a GPU based on the largest number of SMs in all GPUs
+        //probably not perfect, but high-end cards tend to have more SMs
+        int max_SM = 0;
+        int max_ind = -1;
+        for (int i = 0; i < count[0]; i++) {
+            cudaDeviceProp prop = new cudaDeviceProp();
+            JCuda.cudaGetDeviceProperties(prop, i);
+            int SMs = prop.multiProcessorCount;
+            if (max_SM < SMs) {
+                max_SM = SMs;
+                max_ind = i;
+            }
+        }
+
+        return new CudaDevice(max_ind);
     }
 
     private static void initialize() {
         JCudaDriver.setExceptionsEnabled(true);
         cuInit(0);
+    }
+
+    public int getDeviceNum() {
+        return device_id;
     }
 
     public int getComputeModules() {
@@ -99,7 +123,7 @@ public final class CudaDevice {
         return result[0] + "." + result[1];
     }
 
-    private int[] getMajorMinor() {
+    public int[] getMajorMinor() {
         final int[] major = new int[1];
         final int[] minor = new int[1];
         JCudaDriver.cuDeviceComputeCapability(major, minor, _device);

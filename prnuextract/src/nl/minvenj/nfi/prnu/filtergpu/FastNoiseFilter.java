@@ -37,6 +37,7 @@ public final class FastNoiseFilter {
 	protected CudaFunction _convolveVertically;
 	protected CudaFunction _convolveHorizontally;
 	protected CudaFunction _normalize;
+	protected CudaFunction _zeroMem;
 
 	//handles to device memory arrays
 	protected CudaMemFloat _d_input;
@@ -59,6 +60,9 @@ public final class FastNoiseFilter {
 	protected Pointer normalizeDXSDYS;
 	protected Pointer convolveHorizontallyINPUT;
 	protected Pointer convolveVerticallyINPUT;
+	protected Pointer zeroDXS;
+	protected Pointer zeroDYS;
+	protected Pointer zeroINPUT;
 
 	protected int h;
 	protected int w;
@@ -94,6 +98,9 @@ public final class FastNoiseFilter {
 
 		_normalize = module.getFunction("normalize");
 		_normalize.setDim(_grid_x, _grid_y, _grid_z, _threads_x, _threads_y, _threads_z);
+
+		_zeroMem = module.getFunction("zeroMem");
+		_zeroMem.setDim(_grid_x, _grid_y, _grid_z, _threads_x, _threads_y, _threads_z);
 
 		// Allocate the CUDA buffers for this kernel
 		_d_dxs = _context.allocFloats(w*h);
@@ -134,6 +141,24 @@ public final class FastNoiseFilter {
 				Pointer.to(_d_input.getDevicePointer()),
 				Pointer.to(_d_dys.getDevicePointer())
 				);
+
+        zeroDXS = Pointer.to(
+                Pointer.to(new int[]{h}),
+                Pointer.to(new int[]{w}),
+                Pointer.to(_d_dxs.getDevicePointer())
+                );
+        zeroDYS = Pointer.to(
+                Pointer.to(new int[]{h}),
+                Pointer.to(new int[]{w}),
+                Pointer.to(_d_dys.getDevicePointer())
+                );
+        zeroINPUT = Pointer.to(
+                Pointer.to(new int[]{h}),
+                Pointer.to(new int[]{w}),
+                Pointer.to(_d_input.getDevicePointer())
+                );
+
+
 
 	}
 
@@ -247,8 +272,12 @@ public final class FastNoiseFilter {
 	 * The output PRNU Noise pattern is stored in place of the input.
 	 */
 	public void applyGPU() {
-		_d_dxs.memset(0, w*h);
-		_d_dys.memset(0, w*h);
+
+		//_d_dxs.memset(0, w*h, _stream);
+		//_d_dys.memset(0, w*h, _stream);
+		//JCudaDriver.cuCtxSynchronize();
+        _zeroMem.launch(_stream, zeroDXS);
+        _zeroMem.launch(_stream, zeroDYS);
 
 		_convolveHorizontally.launch(_stream, convolveHorizontallyDXS);
 
@@ -256,7 +285,9 @@ public final class FastNoiseFilter {
 
 		_normalize.launch(_stream, normalizeDXSDYS);
 
-		_d_input.memset(0, w*h);
+		//_d_input.memset(0, w*h, _stream);
+		//JCudaDriver.cuCtxSynchronize();
+        _zeroMem.launch(_stream, zeroINPUT);
 
 		_convolveHorizontally.launch(_stream, convolveHorizontallyINPUT);
 

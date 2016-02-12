@@ -22,6 +22,8 @@ import nl.minvenj.nfi.cuba.cudaapi.CudaMemFloat;
 import nl.minvenj.nfi.cuba.cudaapi.CudaModule;
 import nl.minvenj.nfi.cuba.cudaapi.CudaStream;
 
+import jcuda.driver.*;
+
 /**
  * PRNUFilter is created for a specific image size. The CUDA source files
  * have been compiled by PRNUFilterFactory. Therefore, this object should
@@ -84,16 +86,22 @@ public class PRNUFilter {
 	 */
 	public float[] apply(BufferedImage image) {
 		grayscaleFilter.applyGPU(image);
+
 		fastNoiseFilter.applyGPU();
 		zeroMeanTotalFilter.applyGPU();
 		wienerFilter.applyGPU();
 		
+		stream.synchronize();
+        JCudaDriver.cuCtxSynchronize();
+
 		float[] pixelsFloat = new float[w*h];
 		d_input.copyDeviceToHostAsync(pixelsFloat, pixelsFloat.length, stream);
 
 		stream.synchronize();
+        JCudaDriver.cuCtxSynchronize();
 		
 		return pixelsFloat;
+
 	}
 	
 	/*

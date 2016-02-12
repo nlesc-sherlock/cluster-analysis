@@ -11,6 +11,7 @@ import static jcuda.driver.JCudaDriver.cuMemcpyHtoD;
 import static jcuda.driver.JCudaDriver.cuMemcpyDtoHAsync;
 import static jcuda.driver.JCudaDriver.cuMemcpyHtoDAsync;
 import static jcuda.driver.JCudaDriver.cuMemsetD32;
+import static jcuda.driver.JCudaDriver.cuMemsetD32Async;
 import static jcuda.driver.JCudaDriver.cuCtxSynchronize;
 import jcuda.Pointer;
 import jcuda.driver.CUdeviceptr;
@@ -35,11 +36,13 @@ public abstract class CudaMem {
     protected void copyHostToDevice(final Pointer srcHost, final long byteCount) {
     	cuCtxSynchronize();
         cuMemcpyHtoD(_deviceptr, srcHost, byteCount);
+    	cuCtxSynchronize();
     }
 
     protected void copyDeviceToHost(final Pointer dstHost, final long byteCount) {
     	cuCtxSynchronize();
         cuMemcpyDtoH(dstHost, _deviceptr, byteCount);
+    	cuCtxSynchronize();
     }
 
     protected void copyHostToDeviceAsync(final Pointer srcHost, final long byteCount, CudaStream stream) {
@@ -52,6 +55,10 @@ public abstract class CudaMem {
     
     protected void memsetD32(final int ui, final int n) {
         cuMemsetD32(_deviceptr, ui, n);
+    }
+
+    protected void memsetD32(final int ui, final int n, CudaStream stream) {
+        cuMemsetD32Async(_deviceptr, ui, n, stream.cuStream());
     }
 
     public void free() {

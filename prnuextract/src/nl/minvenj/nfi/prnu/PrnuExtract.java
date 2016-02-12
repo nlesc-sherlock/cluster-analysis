@@ -29,7 +29,8 @@ public final class PrnuExtract {
     static final File TESTDATA_FOLDER = new File("testdata");
 
     static final File INPUT_FOLDER = new File(TESTDATA_FOLDER, "input");
-    public static final File INPUT_FILE = new File(INPUT_FOLDER, "test.jpg");
+//    public static final File INPUT_FILE = new File(INPUT_FOLDER, "test.jpg");
+    public static final File INPUT_FILE = new File("/var/scratch/bwn200/Dresden/2748x3664/Kodak_M1063_4_12664.JPG");
     static final File EXPECTED_PATTERN_FILE = new File(INPUT_FOLDER, "expected.pat");
 
     static final File OUTPUT_FOLDER = new File(TESTDATA_FOLDER, "output");

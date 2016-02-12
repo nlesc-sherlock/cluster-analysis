@@ -52,60 +52,52 @@ public final class PeakToCorrelationEnergy {
      */
     public double compare_fft(final float[] fx, final float[] fy) {
         crosscorr_fft(fx, fy);
-	int peakIndex = findPeak();
-	double peak = _c[peakIndex];
-	int indexY = peakIndex / _columns;
-	int indexX = peakIndex - indexY;
-        double absPce = (peak * peak) / energyFixed(_squareSize, indexX, indexY);
-        return (peak < 0.0) ? -absPce : absPce;
+        // find the peak and use it 
+        int peakIndex = findPeak();                           //actual peak
+        //int peakIndex = 0;                                    //first pixel
+        //int peakIndex = ((_rows * _columns) - 1) << 1;        //last pixel
+        double peak = _c[peakIndex];
+        peak = _c[((_rows * _columns) - 1) << 1]; //take value of last pixel instead of real peak
+        int indexY = peakIndex / _columns;
+        int indexX = peakIndex - (indexY * _columns);
+        double energy = energyFixed(_squareSize, indexX, indexY);
+         
+        //do not use the peak, assuming there is no cropping
+        //double peak = _c[((_rows * _columns) - 1) << 1];
+        //double energy = energy(_squareSize);
+        System.out.println("Peak=" + peak + " Energy=" + energy);
+        double absPce = (peak * peak) / energy;
+
+        //return (peak < 0.0) ? -absPce : absPce;
+        return absPce;
     }
  
     public double compare(final float[] x, final float[] y) {
-        //argPattern("x", x);
-        //argPattern("y", y);
-
-	long start, end;
-        start = System.nanoTime();
         crosscorr(x, y); // result is stored in '_c' !!
-	end = System.nanoTime();
-        //System.out.println("crosscor took: " + (end-start)/1e6 + " ms.");
 
-	/*
-        double peak = _x[((_rows * _columns) - 1) * 2]; //how do we know the peak is here?
+        int peakIndex = findPeak();
+        double peak = _c[peakIndex];
+        peak = _c[((_rows * _columns) - 1) << 1]; //take value of last pixel instead of real peak
+        int indexY = peakIndex / _columns;
+        int indexX = peakIndex - (indexY * _columns);
 
-        start = System.nanoTime();
-        double absPce = (peak * peak) / energy(_squareSize);
-	end = System.nanoTime();
-        //System.out.println("energy took: " + (end-start)/1e6 + " ms. result= " + absPce);
-	*/
-
-        start = System.nanoTime();
-	int peakIndex = findPeak();
-	end = System.nanoTime();
-        //System.out.println("findPeak took: " + (end-start)/1e6 + " ms.");
-
-	double peak = _c[peakIndex];
-	int indexY = peakIndex / _columns;
-	int indexX = peakIndex - indexY;
-
-        start = System.nanoTime();
         double absPce = (peak * peak) / energyFixed(_squareSize, indexX, indexY);
-	end = System.nanoTime();
-        //System.out.println("energyFixed took: " + (end-start)/1e6 + " ms. result= " + absPce);
 
-        return (peak < 0.0) ? -absPce : absPce;
+        return absPce;
     }
 
     public int findPeak() { 
-	float max = 0.0f;
-	int res = 0;
-	for (int i=0; i<_c.length; i+=2) { //only look at real values in complex array x
-	  if (_c[i] > max) {
-	    max = _c[i];
-	    res = i;
-	  }
-	}
-	return res;
+        float max = 0.0f;
+        int res = 0;
+        for (int i=0; i<_c.length; i+=2) { //only look at real values in complex array 
+            if (Math.abs(_c[i]) > max) {
+                max = Math.abs(_c[i]);
+//            if (_c[i] > max) {
+//                max = _c[i];
+                res = i;
+            }
+        }
+        return res;
     }
 
     private double energy(final int squareSize) {
@@ -144,17 +136,17 @@ public final class PeakToCorrelationEnergy {
         final int n = (_rows * _columns) - (squareSize * squareSize);
 
         // Determine the energy, i.e. the sample variance of circular cross-correlations, minus an area around the peak
-        double energy = 0.0f;
+        double energy = 0.0;
         for (int row = 0; row < _rows; row++) {
-	    boolean peakRow = row > peakIndexY - radius && row < peakIndexY + radius;
+            boolean peakRow = row > peakIndexY - radius && row < peakIndexY + radius;
             for (int col = 0; col < _columns; col++) {
-		if (peakRow && col > peakIndexX - radius && col < peakIndexX + radius) {
-		  continue;
-		}
-		else {
-		  float f = _c[row*_columns*2 + col*2];
-                  energy += (f * f);
-		}
+                if (peakRow && col > peakIndexX - radius && col < peakIndexX + radius) {
+                    continue;
+                }
+                else {
+                    float f = _c[row*_columns*2 + col*2];
+                    energy += (f * f);
+                }
             }
         }
         return (energy / n);
@@ -177,10 +169,10 @@ public final class PeakToCorrelationEnergy {
      * This is the same crosscorr method as below, but uses input already in frequency space
      */
     public void crosscorr_fft(float[] fx, float[] fy) {
-	this._x = fx;
-	this._y = fy;
+        this._x = fx;
+        this._y = fy;
 
-	compute_crosscorr();
+        compute_crosscorr();
 
         _fft.complexInverse(_c, true);
     }
@@ -192,14 +184,15 @@ public final class PeakToCorrelationEnergy {
             //x.selectRow(row, _rowBuffer1);
             //y.selectRow(row, _rowBuffer2);
             for (int i=0; i<_columns; i++) {
-            	_rowBuffer1[i] = x[row * _columns + i];
-            	_rowBuffer2[i] = y[row * _columns + i];
+                    _rowBuffer1[i] = x[row * _columns + i];
+                    _rowBuffer2[i] = y[row * _columns + i];
             }            
 
             final int xOffset = (row * _columns) * 2;
             final int yOffset = (((_rows - row) * _columns) - 1) * 2;
 
             //this is a toComplex operation that copies the contents of rowbuffer 1 and 2 into _x and _y
+            //yet it seems to do something weird with yOffset
             for (int col = 0; col < _columns; col++) {
                 _x[xOffset + (col + col)] = _rowBuffer1[col];
                 _x[xOffset + (col + col) + 1] = 0.0f;
@@ -212,7 +205,7 @@ public final class PeakToCorrelationEnergy {
         _fft.complexForward(_x);
         _fft.complexForward(_y);
 
-	compute_crosscorr();
+        compute_crosscorr();
 
         _fft.complexInverse(_c, true);
     }

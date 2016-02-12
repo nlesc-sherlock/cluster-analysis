@@ -49,4 +49,10 @@ public final class CudaMemFloat extends CudaMem {
     public void memset(final float val, final int elementCount) {
         super.memsetD32((int)val, elementCount);
     }
+
+    public void memset(final float val, final int elementCount, CudaStream stream) {
+        super.memsetD32((int)val, elementCount);
+    }
+
+
 }

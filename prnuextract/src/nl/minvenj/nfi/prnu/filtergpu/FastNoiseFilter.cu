@@ -36,6 +36,7 @@ extern "C" {
 	__global__ void convolveVertically(int h, int w, float* output, float* input);
 	__global__ void convolveHorizontally(int h, int w, float* output, float* input);
 	__global__ void normalize(int h, int w, float* dxs, float* dys);
+    __global__ void zeroMem(int h, int w, float* array);
 }
 
 /**
@@ -58,7 +59,7 @@ __global__ void convolveVertically(int h, int w, float* output, float* input) {
 			res += input[i*w+j] - input[(i-1)*w+j];
 		} 
 		else if (i > 0 && i < h-1) {
-			res += 0.5 * (input[(i+1)*w+j] - input[(i-1)*w+j]);
+			res += 0.5f * (input[(i+1)*w+j] - input[(i-1)*w+j]);
 		}
 
 		output[i*w+j] = res;
@@ -86,7 +87,7 @@ __global__ void convolveHorizontally(int h, int w, float* output, float* input) 
 			res += input[i*w+j] - input[i*w+j-1];
 		}
 		else if (j > 0 && j < w-1) {
-			res += 0.5 * (input[i*w+j+1] - input[i*w+j-1]);
+			res += 0.5f * (input[i*w+j+1] - input[i*w+j-1]);
 		}
 
 		output[i*w+j] = res;
@@ -110,6 +111,22 @@ __global__ void normalize(int h, int w, float* dxs, float* dys) {
 
 		dxs[i*w+j] = scale * dx;
 		dys[i*w+j] = scale * dy;
+	}
+}
+
+
+
+
+
+/**
+ * Helper kernel to zero an array.
+ */
+__global__ void zeroMem(int h, int w, float* array) {
+    int i = threadIdx.y + blockIdx.y * blockDim.y;
+    int j = threadIdx.x + blockIdx.x * blockDim.x;
+
+    if (i < h && j < w) {
+		array[i*w+j] = 0.0f;
 	}
 }
 

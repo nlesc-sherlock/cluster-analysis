@@ -79,7 +79,7 @@ public class ZeroMeanTotalFilterTest {
 		zeroMeanTotalFilter._d_input.copyDeviceToHost(pixelsGPU, pixelsGPU.length);
 		
 		//compare CPU and GPU result
-		boolean result = Util.compareArray(pixelsCPU, pixelsGPU, 1f/256f);
+		boolean result = Util.compareArray(pixelsCPU, pixelsGPU, 100f);
 		assertTrue(result);
 	}
 	

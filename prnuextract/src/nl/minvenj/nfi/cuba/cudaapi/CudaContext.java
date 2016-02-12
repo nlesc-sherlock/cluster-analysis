@@ -13,9 +13,11 @@ import jcuda.driver.CUdevice;
 
 public final class CudaContext {
     private final CUcontext _context;
+    CudaDevice device;
 
-    CudaContext(final CUdevice device) {
+    CudaContext(final CUdevice device, CudaDevice cudaDev) {
         _context = new CUcontext();
+        this.device = cudaDev;
 
         cuCtxCreate(_context, 0, device);
     }
@@ -30,6 +32,10 @@ public final class CudaContext {
 
     public CudaModule loadModule(final String cuSource, final String... nvccOptions) {
         return new CudaModule(cuSource, nvccOptions);
+    }
+
+    public CudaDevice getDevice() {
+        return this.device;
     }
 
     public void synchronize() {

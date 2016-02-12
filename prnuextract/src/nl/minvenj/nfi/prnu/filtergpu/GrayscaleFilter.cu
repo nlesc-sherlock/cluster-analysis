@@ -23,7 +23,8 @@
  * @version 0.1
  */
 extern "C" {
-    __global__ void grayscale(int h, int w, float* output, uchar3* input);
+//    __global__ void grayscale(int h, int w, float* output, uchar3* input);
+    __global__ void grayscale(int h, int w, float* output, char* input);
 }
 
 /*
@@ -34,13 +35,16 @@ extern "C" {
  * gridDim.x = w / blockDim.x  (ceiled)
  * gridDim.y = h / blockDim.y  (ceiled)
  */
-__global__ void grayscale(int h, int w, float* output, uchar3* input) {
+//__global__ void grayscale(int h, int w, float* output, uchar3* input) {
+__global__ void grayscale(int h, int w, float* output, char* input) {
 	int i = threadIdx.y + blockIdx.y * blockDim.y;
 	int j = threadIdx.x + blockIdx.x * blockDim.x;
 	
+    uchar3 *c3_input = (uchar3 *)input;
+
 	if (j < w && i < h) {
 
-		uchar3 c = input[i*w+j];
+		uchar3 c = c3_input[i*w+j];
 
 //          float b = (float) input[(i*w+j) * 3 + 0] & 0xFFFF;
 //          float g = (float) input[(i*w+j) * 3 + 1] & 0xFFFF;
