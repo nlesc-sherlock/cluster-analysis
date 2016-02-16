@@ -40,12 +40,14 @@ public class NormalizedCrossCorrelation {
     //PRNU pattern dimensions
     int h;
     int w;
+    int n;
 
     public NormalizedCrossCorrelation(int h, int w, CudaContext context, CudaModule module) {
         _context = context;
         _stream = new CudaStream();
         this.h = h;
         this.w = w;
+        this.n = h*w;
 
         //setup CUDA functions
         JCudaDriver.setExceptionsEnabled(true);
@@ -72,10 +74,9 @@ public class NormalizedCrossCorrelation {
 
         //construct parameter lists for the CUDA kernels
         sumSquared = Pointer.to(
-                Pointer.to(new int[]{h}),
-                Pointer.to(new int[]{w}),
                 Pointer.to(_d_output.getDevicePointer()),
-                Pointer.to(_d_input1.getDevicePointer())
+                Pointer.to(_d_input1.getDevicePointer()),
+                Pointer.to(new int[]{n})
                 );
 
     }
@@ -88,13 +89,12 @@ public class NormalizedCrossCorrelation {
 
         //create parameter list
         Pointer computeNCC = Pointer.to(
-                Pointer.to(new int[]{h}),
-                Pointer.to(new int[]{w}),
                 Pointer.to(_d_output.getDevicePointer()),
                 Pointer.to(_d_input1.getDevicePointer()),
                 Pointer.to(new double[]{sumsq_x}),
-                Pointer.to(_d_input2.getDevicePointer())
+                Pointer.to(_d_input2.getDevicePointer()),
                 Pointer.to(new double[]{sumsq_y}),
+                Pointer.to(new int[]{n})
         );
 
         //call the kernel
@@ -105,12 +105,12 @@ public class NormalizedCrossCorrelation {
         _d_output.copyDeviceToHostAsync(result, 1, _stream);
         _stream.synchronize();
 
-        return result;
+        return result[0];
     }
 
     public double sumSquaredGPU(float[] pattern) {
         //copy input to GPU
-        _d_input1.copyHostToDeviceAsync(x, _stream);
+        _d_input1.copyHostToDeviceAsync(pattern, _stream);
 
         //call the kernel
         _sumSquared.launch(_stream, sumSquared);
@@ -120,7 +120,7 @@ public class NormalizedCrossCorrelation {
         _d_output.copyDeviceToHostAsync(result, 1, _stream);
         _stream.synchronize();
 
-        return result;
+        return result[0];
     }
 
     public double sumSquared(final float[] pattern) {
