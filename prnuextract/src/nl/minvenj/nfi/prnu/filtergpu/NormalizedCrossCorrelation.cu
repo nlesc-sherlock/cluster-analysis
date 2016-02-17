@@ -103,7 +103,7 @@ __global__ void computeNCC(double *output, float *x, float *y,  int n) {
         
         //write result
         if (ti == 0) {
-            output[blockIdx.x] = shmem[0]
+            output[blockIdx.x] = shmem[0];
         }
     }
 }   
