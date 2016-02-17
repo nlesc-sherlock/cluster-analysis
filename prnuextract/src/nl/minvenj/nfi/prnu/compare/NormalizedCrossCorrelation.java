@@ -30,6 +30,9 @@ public class NormalizedCrossCorrelation {
     protected CudaMemFloat _d_input2;
     protected CudaMemDouble _d_output;
 
+    protected CudaMemFloat _d_x_patterns[];
+    protected CudaMemFloat _d_y_patterns[];
+
     //handles to CUDA kernels
     protected CudaFunction _sumSquared;
     protected CudaFunction _computeNCC;
@@ -44,6 +47,8 @@ public class NormalizedCrossCorrelation {
     int h;
     int w;
     int n;
+
+    int num_patterns;
 
     public NormalizedCrossCorrelation(int h, int w, CudaContext context, CudaModule module, CudaModule lib) {
         _context = context;
@@ -79,6 +84,24 @@ public class NormalizedCrossCorrelation {
         _d_input2 = _context.allocFloats(h*w);
         _d_output = _context.allocDoubles(num_sm);
 
+        long free[] = new long[1];
+        long total[] = new long[1];
+        JCuda.cudaMemGetInfo(free, total);
+        long patternSize = h*w*4; //size of pattern on the GPU
+        int fit_patterns = (int)(free[0] / patternSize); //debugging
+        num_patterns = fit_patterns/2 + 1;
+        System.out.println("Allocating space for in total " + 2*num_patterns + " patterns on the GPU");
+
+        _d_x_patterns = new CudaMemFloat[num_patterns];
+        _d_y_patterns = new CudaMemFloat[num_patterns];
+
+        _d_x_patterns[0] = _d_input1;
+        _d_y_patterns[0] = _d_input2;
+        for (int i=1; i<num_patterns; i++) {
+            _d_x_patterns[i] = _context.allocFloats(h*w);
+            _d_y_patterns[i] = _context.allocFloats(h*w);
+        }
+
         //construct parameter lists for the CUDA kernels
         sumSquared = Pointer.to(
                 Pointer.to(_d_output.getDevicePointer()),
@@ -100,6 +123,58 @@ public class NormalizedCrossCorrelation {
         );
 
 
+    }
+
+    public double[][] compareGPU(float[][] xPatterns, double[] sumsq_x, float[][] yPatterns, double[] sumsq_y, boolean[][] predicate) {
+
+        double result[][] = new double[num_patterns][num_patterns];
+
+        //copy inputs to the GPU (host to device)
+        for (int i=0; i < num_patterns; i++) {
+            if (xPatterns[i] != null) {
+                _d_x_patterns[i].copyHostToDeviceAsync(xPatterns[i], _stream);
+            }
+            if (yPatterns[i] != null) {
+                _d_y_patterns[i].copyHostToDeviceAsync(yPatterns[i], _stream);
+            }
+        }
+
+        //call the kernel
+        _stream.synchronize();
+        long start = System.nanoTime();
+
+        for (int i=0; i < num_patterns; i++) {
+            for (int j=0; j < num_patterns; j++) {
+                if (predicate[i][j]) {
+
+                    //call the kernel
+                    computeNCC = Pointer.to(
+                            Pointer.to(_d_output.getDevicePointer()),
+                            Pointer.to(_d_x_patterns[i].getDevicePointer()),
+                            Pointer.to(_d_y_patterns[j].getDevicePointer()),
+                            Pointer.to(new int[]{n})
+                    );
+                    _computeNCC.launch(_stream, computeNCC);
+                    _sumDoubles.launch(_stream, sumDoubles);
+
+                    //copy output (device to host)
+                    double out[] = new double[1];
+                    _d_output.copyDeviceToHostAsync(out, 1, _stream);
+                    _stream.synchronize();
+                    result[i][j] = out[0] / Math.sqrt(sumsq_x[i] * sumsq_y[j]);
+
+                } else {
+                    result[i][j] = 0.0;
+                }
+            }
+        }
+
+        _stream.synchronize();
+
+        double gpu_time = (System.nanoTime() - start)/1e6;
+        System.out.println("computeNCC GPU took: " + gpu_time + " ms.");
+
+        return result;
     }
 
 
