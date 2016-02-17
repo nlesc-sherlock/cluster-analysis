@@ -38,6 +38,7 @@ public class NormalizedCrossCorrelation {
     //parameterlists for kernel invocations
     protected Pointer sumSquared;
     protected Pointer sumDoubles;
+    protected Pointer computeNCC;
 
     //PRNU pattern dimensions
     int h;
@@ -84,11 +85,19 @@ public class NormalizedCrossCorrelation {
                 Pointer.to(_d_input1.getDevicePointer()),
                 Pointer.to(new int[]{n})
                 );
+
         sumDoubles = Pointer.to(
                 Pointer.to(_d_output.getDevicePointer()),
                 Pointer.to(_d_output.getDevicePointer()),
                 Pointer.to(new int[]{num_sm})
                 );
+
+        computeNCC = Pointer.to(
+                Pointer.to(_d_output.getDevicePointer()),
+                Pointer.to(_d_input1.getDevicePointer()),
+                Pointer.to(_d_input2.getDevicePointer()),
+                Pointer.to(new int[]{n})
+        );
 
 
     }
@@ -99,31 +108,31 @@ public class NormalizedCrossCorrelation {
         _d_input1.copyHostToDeviceAsync(x, _stream);
         _d_input2.copyHostToDeviceAsync(y, _stream);
 
-        //create parameter list
-        Pointer computeNCC = Pointer.to(
-                Pointer.to(_d_output.getDevicePointer()),
-                Pointer.to(_d_input1.getDevicePointer()),
-                Pointer.to(new double[]{sumsq_x}),
-                Pointer.to(_d_input2.getDevicePointer()),
-                Pointer.to(new double[]{sumsq_y}),
-                Pointer.to(new int[]{n})
-        );
-
         //call the kernel
+        _stream.synchronize();
+        long start = System.nanoTime();
         _computeNCC.launch(_stream, computeNCC);
         _sumDoubles.launch(_stream, sumDoubles);
+        _stream.synchronize();
 
         //copy output (device to host)
         double result[] = new double[1];
         _d_output.copyDeviceToHostAsync(result, 1, _stream);
         _stream.synchronize();
+        double res = result[0] / Math.sqrt(sumsq_x * sumsq_y);
 
-        return result[0];
+        double gpu_time = (System.nanoTime() - start)/1e6;
+        System.out.println("computeNCC GPU: " + res + " took: " + gpu_time + " ms.");
+
+        return res;
     }
 
     public double sumSquaredGPU(float[] pattern) {
         //copy input to GPU
         _d_input1.copyHostToDeviceAsync(pattern, _stream);
+
+        _stream.synchronize();
+        long start = System.nanoTime();
 
         //call the kernel
         _sumSquared.launch(_stream, sumSquared);
@@ -133,6 +142,9 @@ public class NormalizedCrossCorrelation {
         double result[] = new double[1];
         _d_output.copyDeviceToHostAsync(result, 1, _stream);
         _stream.synchronize();
+
+        double gpu_time = (System.nanoTime() - start)/1e6;
+        System.out.println("sumSquared GPU: " + result[0] + " took: " + gpu_time + " ms.");
 
         return result[0];
     }
