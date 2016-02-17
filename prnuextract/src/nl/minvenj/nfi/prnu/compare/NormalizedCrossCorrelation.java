@@ -77,7 +77,7 @@ public class NormalizedCrossCorrelation {
         //allocate local variables in GPU memory
         _d_input1 = _context.allocFloats(h*w);
         _d_input2 = _context.allocFloats(h*w);
-        _d_output = _context.allocDoubles(num_sm);
+        _d_output = _context.allocDoubles(reducing_thread_blocks);
 
         //construct parameter lists for the CUDA kernels
         sumSquared = Pointer.to(
@@ -89,7 +89,7 @@ public class NormalizedCrossCorrelation {
         sumDoubles = Pointer.to(
                 Pointer.to(_d_output.getDevicePointer()),
                 Pointer.to(_d_output.getDevicePointer()),
-                Pointer.to(new int[]{num_sm})
+                Pointer.to(new int[]{reducing_thread_blocks})
                 );
 
         computeNCC = Pointer.to(
