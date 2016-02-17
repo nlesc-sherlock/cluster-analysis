@@ -112,7 +112,8 @@ public class PrnuExtractGPU {
         NormalizedCrossCorrelation NCC = new NormalizedCrossCorrelation(
                 this.height,
                 this.width, filterFactory.getContext(),
-                filterFactory.compile("NormalizedCrossCorrelation.cu"));
+                filterFactory.compile("NormalizedCrossCorrelation.cu"), 
+                filterFactory.compile("PeakToCorrelationEnergy.cu"));
 
         System.out.println("Comparing patterns...");
         PrintWriter edgefile = null;

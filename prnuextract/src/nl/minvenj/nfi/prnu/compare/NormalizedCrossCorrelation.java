@@ -33,16 +33,18 @@ public class NormalizedCrossCorrelation {
     //handles to CUDA kernels
     protected CudaFunction _sumSquared;
     protected CudaFunction _computeNCC;
+    protected CudaFunction _sumDoubles;
 
     //parameterlists for kernel invocations
     protected Pointer sumSquared;
+    protected Pointer sumDoubles;
 
     //PRNU pattern dimensions
     int h;
     int w;
     int n;
 
-    public NormalizedCrossCorrelation(int h, int w, CudaContext context, CudaModule module) {
+    public NormalizedCrossCorrelation(int h, int w, CudaContext context, CudaModule module, CudaModule lib) {
         _context = context;
         _stream = new CudaStream();
         this.h = h;
@@ -67,10 +69,14 @@ public class NormalizedCrossCorrelation {
         _computeNCC.setDim(   reducing_thread_blocks, 1, 1,
                 threads, 1, 1);
 
+        _sumDoubles = lib.getFunction("sumDoubles");
+        _sumDoubles.setDim(   1, 1, 1,
+                threads, 1, 1);
+
         //allocate local variables in GPU memory
         _d_input1 = _context.allocFloats(h*w);
         _d_input2 = _context.allocFloats(h*w);
-        _d_output = _context.allocDoubles(1);
+        _d_output = _context.allocDoubles(num_sm);
 
         //construct parameter lists for the CUDA kernels
         sumSquared = Pointer.to(
@@ -78,6 +84,12 @@ public class NormalizedCrossCorrelation {
                 Pointer.to(_d_input1.getDevicePointer()),
                 Pointer.to(new int[]{n})
                 );
+        sumDoubles = Pointer.to(
+                Pointer.to(_d_output.getDevicePointer()),
+                Pointer.to(_d_output.getDevicePointer()),
+                Pointer.to(new int[]{num_sm})
+                );
+
 
     }
 
@@ -99,6 +111,7 @@ public class NormalizedCrossCorrelation {
 
         //call the kernel
         _computeNCC.launch(_stream, computeNCC);
+        _sumDoubles.launch(_stream, sumDoubles);
 
         //copy output (device to host)
         double result[] = new double[1];
@@ -114,6 +127,7 @@ public class NormalizedCrossCorrelation {
 
         //call the kernel
         _sumSquared.launch(_stream, sumSquared);
+        _sumDoubles.launch(_stream, sumDoubles);
 
         //copy output (device to host)
         double result[] = new double[1];
