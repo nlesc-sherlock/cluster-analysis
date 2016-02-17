@@ -405,9 +405,9 @@ public class PrnuExtractGPU {
         long end = 0;
         
         this.testcase = testcase;
-        this.EDGELIST_FILENAME = "/var/scratch/bwn200/edgelist-" + testcase + ".txt";
-        this.MATRIX_BIN_FILENAME = "/var/scratch/bwn200/matrix-" + testcase + ".dat";
-        this.MATRIX_TXT_FILENAME = "/var/scratch/bwn200/matrix-" + testcase + ".txt";
+        this.EDGELIST_FILENAME = "/var/scratch/hspreeuw/edgelist-" + testcase + ".txt";
+        this.MATRIX_BIN_FILENAME = "/var/scratch/hspreeuw/matrix-" + testcase + ".dat";
+        this.MATRIX_TXT_FILENAME = "/var/scratch/hspreeuw/matrix-" + testcase + ".txt";
         this.TESTDATA_FOLDER = new File(folderpath);
 
         //instantiate the PRNUFilterFactory to compile CUDA source files
