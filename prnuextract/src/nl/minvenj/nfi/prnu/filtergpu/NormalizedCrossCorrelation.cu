@@ -41,56 +41,71 @@ extern "C" {
  * This function is to be called with only a single thread block
  */
 __global__ void sumSquared(double *output, float *x, int n) {
+    int _x = blockIdx.x * LARGETB + threadIdx.x;
     int ti = threadIdx.x;
+    int step_size = gridDim.x * LARGETB;
+
     __shared__ double shmem[LARGETB];
 
-    //compute thread-local sums
-    double sumsq = 0.0;
-    for (int i=ti; i < n; i+=LARGETB) {
-        sumsq += x[i] * x[i];
-    }
-    shmem[ti] = sumsq;
-    __syncthreads();
+    if (ti < n) {
 
-    for (unsigned int s=LARGETB/2; s>0; s>>=1) {
-        if (ti < s) {
-            shmem[ti] += shmem[ti + s];
+    	//compute thread-local sums
+    	double sumsq = 0.0;
+    	for (int i=_x; i < n; i+=step_size) {
+            sumsq += x[i] * x[i];
         }
+  
+        //store local sums in shared memory
+        shmem[ti] = sumsq;
         __syncthreads();
-    }
 
-    //write result
-    if (ti == 0) {
-        output[0] = shmem[0];
+        //reduce local sums
+        for (unsigned int s=LARGETB/2; s>0; s>>=1) {
+            if (ti < s) {
+            shmem[ti] += shmem[ti + s];
+            }
+            __syncthreads();
+        }
+
+        //write result
+        if (ti == 0) {
+            output[blockIdx.x] = shmem[0];
+        }
     }
 }
  
-__global__ void computeNCC(double *output, float *x, double sumsq_x, float *y, double sumsq_y, int n) {
+__global__ void computeNCC(double *output, float *x, float *y,  int n) {
+    int _x = blockIdx.x * LARGETB + threadIdx.x;
     int ti = threadIdx.x;
+    int step_size = gridDim.x * LARGETB;
+
     __shared__ double shmem[LARGETB];
 
-    //compute thread-local sums
-    double sumxy = 0.0;        
-    for (int i=ti; i < n; i+=LARGETB) {
-        sumxy += x[i] * y[i];
-    }
+    if (ti < n) {
 
-    //store local sums in shared memory
-    shmem[ti] = sumxy;
-    __syncthreads();
-        
-    //reduce local sums
-    for (unsigned int s=LARGETB/2; s>0; s>>=1) {
-        if (ti < s) {
-            shmem[ti] += shmem[ti + s];
+        //compute thread-local sums
+        double sumxy = 0.0;        
+        for (int i=_x; i < n; i+=step_size) {
+            sumxy += x[i] * y[i];
         }
+
+        //store local sums in shared memory
+        shmem[ti] = sumxy;
         __syncthreads();
-    }
         
-    //write result
-    if (ti == 0) {
-        output[0] = shmem[0]/sqrtf(sumsq_x * sumsq_y);
+        //reduce local sums
+        for (unsigned int s=LARGETB/2; s>0; s>>=1) {
+            if (ti < s) {
+                shmem[ti] += shmem[ti + s];
+            }
+            __syncthreads();
+        }
+        
+        //write result
+        if (ti == 0) {
+            output[blockIdx.x] = shmem[0]
+        }
     }
-}
+}   
 
 
