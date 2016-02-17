@@ -106,6 +106,13 @@ public class PrnuExtractGPU {
     double[][] computeNCC(String[] filenames, float[][] patternsGPU) {
         int numfiles = filenames.length;
         double cortable[][] = new double[numfiles][numfiles];
+        long start, end;
+        double cpu_time, gpu_time;
+    
+        NormalizedCrossCorrelation NCC = new NormalizedCrossCorrelation(
+                this.height,
+                this.width, filterFactory.getContext(),
+                filterFactory.compile("NormalizedCrossCorrelation.cu"));
 
         System.out.println("Comparing patterns...");
         PrintWriter edgefile = null;
@@ -119,7 +126,15 @@ public class PrnuExtractGPU {
         double[] sumsquares = new double[numfiles];
         for (int i=0; i<numfiles; i++) {
 //            sumsquares[i] = NormalizedCrossCorrelation.sumSquared(patternsGPU[i]);
-            sumsquares[i] = NormalizedCrossCorrelation.sumSquared(cache.retrieve(filenames[i]));
+
+            start = System.nanoTime();
+            sumsquares[i] = NCC.sumSquaredGPU(cache.retrieve(filenames[i]));
+            gpu_time = (System.nanoTime() - start)/1e6;
+            start = System.nanoTime();
+            double sumsquared = NormalizedCrossCorrelation.sumSquared(cache.retrieve(filenames[i]));
+            cpu_time = (System.nanoTime() - start)/1e6;
+
+            System.out.println("sumSquared: CPU: " + sumsquared + " took: " + cpu_time + " ms. GPU: " + sumsquares[i] + " took: " + gpu_time + " ms.");
         }
         System.out.println("Finished computing sum of squares");
 
@@ -141,10 +156,18 @@ public class PrnuExtractGPU {
           for (int j=0; j<i; j++) {
             //patternsGPU[j] = read_float_array_from_file(filenames[j], patternSize);
 //            cortable[i][j] = NormalizedCrossCorrelation.compare(patternsGPU[i], sumsquares[i], patternsGPU[j], sumsquares[j]);
-            cortable[i][j] = NormalizedCrossCorrelation.compare(cache.retrieve(filenames[i]), sumsquares[i], cache.retrieve(filenames[j]), sumsquares[j]);
+
+            start = System.nanoTime();
+            double nccscore = NormalizedCrossCorrelation.compare(cache.retrieve(filenames[i]), sumsquares[i], cache.retrieve(filenames[j]), sumsquares[j]);
+            cpu_time = (System.nanoTime() - start)/1e6;
+
+            start = System.nanoTime();
+            cortable[i][j] = NCC.compareGPU(cache.retrieve(filenames[i]), sumsquares[i], cache.retrieve(filenames[j]), sumsquares[j]);
+            gpu_time = (System.nanoTime() - start)/1e6;
 
             edgefile.println(filenames[i] + " " + filenames[j] + " " + cortable[i][j]);
-            //System.out.println(filenames[i] + " " + filenames[j] + " " + cortable[i][j]);
+            System.out.println(filenames[i] + " " + filenames[j] + " " + cortable[i][j] + " CPU: " + nccscore);
+            System.out.println("CPU took: " + cpu_time + " ms. GPU took " + gpu_time + " ms.");
             cortable[j][i] = cortable[i][j];
 
             //patternsGPU[j] = null;
@@ -152,6 +175,7 @@ public class PrnuExtractGPU {
 
             if (c % 50 == 0) {
               System.out.format("\r Progress: %2.2f %%", (((float)c/(float)total)*100.0));
+              System.out.println(); //temporary
               edgefile.flush();
             }
           }
@@ -405,9 +429,9 @@ public class PrnuExtractGPU {
         long end = 0;
         
         this.testcase = testcase;
-        this.EDGELIST_FILENAME = "/var/scratch/hspreeuw/edgelist-" + testcase + ".txt";
-        this.MATRIX_BIN_FILENAME = "/var/scratch/hspreeuw/matrix-" + testcase + ".dat";
-        this.MATRIX_TXT_FILENAME = "/var/scratch/hspreeuw/matrix-" + testcase + ".txt";
+        this.EDGELIST_FILENAME = "edgelist-" + testcase + ".txt";
+        this.MATRIX_BIN_FILENAME = "matrix-" + testcase + ".dat";
+        this.MATRIX_TXT_FILENAME = "matrix-" + testcase + ".txt";
         this.TESTDATA_FOLDER = new File(folderpath);
 
         //instantiate the PRNUFilterFactory to compile CUDA source files

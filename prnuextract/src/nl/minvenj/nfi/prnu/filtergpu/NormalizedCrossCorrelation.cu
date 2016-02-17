@@ -26,8 +26,8 @@
 #define LARGETB 1024
 //function interfaces to prevent C++ garbling the kernel names
 extern "C" {
-    __global__ void sumSquared(double *output, double *x, int n);
-    __global__ void computeNCC(double *output, float* x, double sumsq_x, float* y, double sumsq_y, int n);
+    __global__ void sumSquared(double *output, float *x, int n);
+    __global__ void computeNCC(double *output, float *x, double sumsq_x, float* y, double sumsq_y, int n);
 }
 
 
