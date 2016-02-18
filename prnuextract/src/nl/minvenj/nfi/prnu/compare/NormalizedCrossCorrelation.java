@@ -251,4 +251,19 @@ public class NormalizedCrossCorrelation implements PatternComparator {
     	return (sum_xy / Math.sqrt(sumsq_x * sumsq_y));
     }
 
+
+    /**
+     * Cleans up GPU memory 
+     */
+    public void cleanup() {
+        _d_input1.free();
+        _d_input2.free();
+        _d_output.free();
+        for (int i=1; i<num_patterns; i++) {
+            _d_x_patterns[i].free();
+            _d_y_patterns[i].free();
+        }
+    }
+
+
 }
