@@ -30,7 +30,7 @@ extern "C" {
     __global__ void computeNCC(double *output, float *x, float *y,  int n);
 }
 
-
+# 
 
 /*
  * Simple CUDA Helper function to reduce the output of a
