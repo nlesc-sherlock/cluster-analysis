@@ -50,6 +50,10 @@ public class NormalizedCrossCorrelation {
 
     int num_patterns;
 
+    double total_kernel_time = 0.0;
+    double total_bandwidth = 0.0;
+    int called = 0;
+
     public NormalizedCrossCorrelation(int h, int w, CudaContext context, CudaModule module, CudaModule lib) {
         _context = context;
         _stream = new CudaStream();
@@ -188,7 +192,6 @@ public class NormalizedCrossCorrelation {
         long start = System.nanoTime();
         _computeNCC.launch(_stream, computeNCC);
         _sumDoubles.launch(_stream, sumDoubles);
-        _stream.synchronize();
 
         //copy output (device to host)
         double result[] = new double[1];
@@ -197,6 +200,9 @@ public class NormalizedCrossCorrelation {
         double res = result[0] / Math.sqrt(sumsq_x * sumsq_y);
 
         double gpu_time = (System.nanoTime() - start)/1e6;
+        total_kernel_time += gpu_time;
+        total_bandwidth += ((x.length*4*2)/1e9 ) / (gpu_time/1e3);  // GB/s
+        called++;
         System.out.println("computeNCC GPU: " + res + " took: " + gpu_time + " ms.");
 
         return res;
@@ -222,6 +228,11 @@ public class NormalizedCrossCorrelation {
         System.out.println("sumSquared GPU: " + result[0] + " took: " + gpu_time + " ms.");
 
         return result[0];
+    }
+
+    public void printTime() {
+        System.out.println("total GPU kernel time: " + total_kernel_time + " ms. on average: " + (total_kernel_time / (double)called) + " ms.");
+        System.out.println("Average bandwidth per kernel: " + (total_bandwidth / (double)called) + " GB/s.");
     }
 
     public static double sumSquared(final float[] pattern) {

@@ -183,6 +183,8 @@ public class PrnuExtractGPU {
         }
         edgefile.close();
 
+        NCC.printTime();
+
         return cortable;
     }
 
