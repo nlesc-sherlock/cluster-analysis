@@ -2,9 +2,9 @@
  * Copyright (c) 2012-2013, Netherlands Forensic Institute
  * All rights reserved.
  */
-package nl.minvenj.nfi.prnu;
+package nl.minvenj.nfi.prnu.compare;
 
-
+import nl.minvenj.nfi.prnu.compare.PatternComparator;
 import nl.minvenj.nfi.prnu.Util;
 import nl.minvenj.nfi.cuba.cudaapi.*;
 import jcuda.*;
@@ -19,7 +19,7 @@ import jcuda.driver.*;
 /**
  * This class is performs a Normalized Cross Correlation on the GPU
  */
-public class NormalizedCrossCorrelation {
+public class NormalizedCrossCorrelation implements PatternComparator {
 
     //cuda handles
     protected CudaContext _context;
@@ -48,7 +48,7 @@ public class NormalizedCrossCorrelation {
     int w;
     int n;
 
-    int num_patterns;
+    public int num_patterns;
 
     double total_kernel_time = 0.0;
     double total_bandwidth = 0.0;
@@ -92,8 +92,8 @@ public class NormalizedCrossCorrelation {
         long total[] = new long[1];
         JCuda.cudaMemGetInfo(free, total);
         long patternSize = h*w*4; //size of pattern on the GPU
-        int fit_patterns = (int)(free[0] / patternSize); //debugging
-        num_patterns = fit_patterns/2 + 1;
+        int fit_patterns = (int)(free[0] / patternSize);
+        num_patterns = fit_patterns/2 ; //removed +1
         System.out.println("Allocating space for in total " + 2*num_patterns + " patterns on the GPU");
 
         _d_x_patterns = new CudaMemFloat[num_patterns];
@@ -129,7 +129,7 @@ public class NormalizedCrossCorrelation {
 
     }
 
-    public double[][] compareGPU(float[][] xPatterns, double[] sumsq_x, float[][] yPatterns, double[] sumsq_y, boolean[][] predicate) {
+    public double[][] compareGPU(float[][] xPatterns, float[][] yPatterns, boolean[][] predicate) {
 
         double result[][] = new double[num_patterns][num_patterns];
 
@@ -144,8 +144,8 @@ public class NormalizedCrossCorrelation {
         }
 
         //call the kernel
-        _stream.synchronize();
-        long start = System.nanoTime();
+        //_stream.synchronize();
+        //long start = System.nanoTime();
 
         for (int i=0; i < num_patterns; i++) {
             for (int j=0; j < num_patterns; j++) {
@@ -165,7 +165,7 @@ public class NormalizedCrossCorrelation {
                     double out[] = new double[1];
                     _d_output.copyDeviceToHostAsync(out, 1, _stream);
                     _stream.synchronize();
-                    result[i][j] = out[0] / Math.sqrt(sumsq_x[i] * sumsq_y[j]);
+                    result[i][j] = out[0];
 
                 } else {
                     result[i][j] = 0.0;
@@ -173,10 +173,10 @@ public class NormalizedCrossCorrelation {
             }
         }
 
-        _stream.synchronize();
+        //_stream.synchronize();
 
-        double gpu_time = (System.nanoTime() - start)/1e6;
-        System.out.println("computeNCC GPU took: " + gpu_time + " ms.");
+        //double gpu_time = (System.nanoTime() - start)/1e6;
+        //System.out.println("computeNCC GPU took: " + gpu_time + " ms.");
 
         return result;
     }
@@ -212,8 +212,8 @@ public class NormalizedCrossCorrelation {
         //copy input to GPU
         _d_input1.copyHostToDeviceAsync(pattern, _stream);
 
-        _stream.synchronize();
-        long start = System.nanoTime();
+        //_stream.synchronize();
+        //long start = System.nanoTime();
 
         //call the kernel
         _sumSquared.launch(_stream, sumSquared);
@@ -224,8 +224,8 @@ public class NormalizedCrossCorrelation {
         _d_output.copyDeviceToHostAsync(result, 1, _stream);
         _stream.synchronize();
 
-        double gpu_time = (System.nanoTime() - start)/1e6;
-        System.out.println("sumSquared GPU: " + result[0] + " took: " + gpu_time + " ms.");
+        //double gpu_time = (System.nanoTime() - start)/1e6;
+        //System.out.println("sumSquared GPU: " + result[0] + " took: " + gpu_time + " ms.");
 
         return result[0];
     }
