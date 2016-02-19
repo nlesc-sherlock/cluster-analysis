@@ -52,7 +52,7 @@ public class NormalizedCrossCorrelation implements PatternComparator {
 
     double total_kernel_time = 0.0;
     double total_bandwidth = 0.0;
-    int called = 0;
+    int total_called = 0;
 
     public NormalizedCrossCorrelation(int h, int w, CudaContext context, CudaModule module, CudaModule lib) {
         _context = context;
@@ -132,11 +132,14 @@ public class NormalizedCrossCorrelation implements PatternComparator {
     public double[][] compareGPU(float[][] xPatterns, float[][] yPatterns, boolean[][] predicate) {
 
         double result[][] = new double[num_patterns][num_patterns];
+        int pattern_length = 0;
+        int called = 0;
 
         //copy inputs to the GPU (host to device)
         for (int i=0; i < num_patterns; i++) {
             if (xPatterns[i] != null) {
                 _d_x_patterns[i].copyHostToDeviceAsync(xPatterns[i], _stream);
+                pattern_length = xPatterns[i].length;
             }
             if (yPatterns[i] != null) {
                 _d_y_patterns[i].copyHostToDeviceAsync(yPatterns[i], _stream);
@@ -144,8 +147,8 @@ public class NormalizedCrossCorrelation implements PatternComparator {
         }
 
         //call the kernel
-        //_stream.synchronize();
-        //long start = System.nanoTime();
+        _stream.synchronize();
+        long start = System.nanoTime();
 
         for (int i=0; i < num_patterns; i++) {
             for (int j=0; j < num_patterns; j++) {
@@ -166,6 +169,7 @@ public class NormalizedCrossCorrelation implements PatternComparator {
                     _d_output.copyDeviceToHostAsync(out, 1, _stream);
                     _stream.synchronize();
                     result[i][j] = out[0];
+                    called++;
 
                 } else {
                     result[i][j] = 0.0;
@@ -173,10 +177,12 @@ public class NormalizedCrossCorrelation implements PatternComparator {
             }
         }
 
-        //_stream.synchronize();
+        _stream.synchronize();
 
-        //double gpu_time = (System.nanoTime() - start)/1e6;
-        //System.out.println("computeNCC GPU took: " + gpu_time + " ms.");
+        double gpu_time = (System.nanoTime() - start)/1e6;
+        total_kernel_time += gpu_time; // ms
+        total_bandwidth += ((long)called*(long)pattern_length*(long)4*(long)2)/1e9 ; //GB
+        total_called += called;
 
         return result;
     }
@@ -202,7 +208,7 @@ public class NormalizedCrossCorrelation implements PatternComparator {
         double gpu_time = (System.nanoTime() - start)/1e6;
         total_kernel_time += gpu_time;
         total_bandwidth += ((x.length*4*2)/1e9 ) / (gpu_time/1e3);  // GB/s
-        called++;
+        total_called++;
         System.out.println("computeNCC GPU: " + res + " took: " + gpu_time + " ms.");
 
         return res;
@@ -231,8 +237,8 @@ public class NormalizedCrossCorrelation implements PatternComparator {
     }
 
     public void printTime() {
-        System.out.println("total GPU kernel time: " + total_kernel_time + " ms. on average: " + (total_kernel_time / (double)called) + " ms.");
-        System.out.println("Average bandwidth per kernel: " + (total_bandwidth / (double)called) + " GB/s.");
+        System.out.println("total GPU kernel time: " + total_kernel_time + " ms. on average: " + (total_kernel_time / (double)total_called) + " ms.");
+        System.out.println("Average bandwidth per kernel: " + (total_bandwidth / (total_kernel_time/1000.0)) + " GB/s.");
     }
 
     public static double sumSquared(final float[] pattern) {
