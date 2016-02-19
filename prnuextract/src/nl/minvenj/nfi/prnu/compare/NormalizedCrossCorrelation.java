@@ -50,10 +50,21 @@ public class NormalizedCrossCorrelation implements PatternComparator {
 
     public int num_patterns;
 
+    //gpu performance accounting
     double total_kernel_time = 0.0;
     double total_bandwidth = 0.0;
     int total_called = 0;
 
+    /**
+     * Constructor for the Normalized Cross Correlation GPU implementation
+     *
+     * @param h - the image height in pixels
+     * @param w - the image width in pixels
+     * @param context   - the CudaContext as created by the factory
+     * @param stream    - the CudaStream as created by the factory
+     * @param module    - the CudaModule containing the kernels compiled by the PRNUFilterFactory
+     * @param lib       - another CudaModule containing the kernels compiled by the PRNUFilterFactory
+     */
     public NormalizedCrossCorrelation(int h, int w, CudaContext context, CudaModule module, CudaModule lib) {
         _context = context;
         _stream = new CudaStream();
@@ -129,6 +140,16 @@ public class NormalizedCrossCorrelation implements PatternComparator {
 
     }
 
+
+    /**
+     * This method performs an array of comparisons between patterns
+     * It computes the NCC scores between all patterns in xPatterns and those in yPatterns
+     *
+     * @param xPatterns     array of PRNU patterns stored as float arrays
+     * @param yPatterns     array of PRNU patterns stored as float arrays
+     * @param predicate     a boolean matrix denoting which comparsions are to be made and which not
+     * @returns             a double matrix with all NCC scores from comparing all patterns in x with all in y
+     */
     public double[][] compareGPU(float[][] xPatterns, float[][] yPatterns, boolean[][] predicate) {
 
         double result[][] = new double[num_patterns][num_patterns];
@@ -188,6 +209,16 @@ public class NormalizedCrossCorrelation implements PatternComparator {
     }
 
 
+    /**
+     * This method performs an array of comparisons between patterns
+     * It computes the NCC scores between pattern x and y
+     *
+     * @param x         a PRNU patterns stored as a float array
+     * @param sumsq_x   the sum squared of pattern x
+     * @param y         a PRNU patterns stored as a float array
+     * @param sumsq_y   the sum squared of pattern y
+     * @returns         the NCC scores from comparing patterns x and y
+     */
     public double compareGPU(float[] x, double sumsq_x, float[] y, double sumsq_y) {
         //copy inputs to the GPU (host to device)
         _d_input1.copyHostToDeviceAsync(x, _stream);
@@ -214,6 +245,12 @@ public class NormalizedCrossCorrelation implements PatternComparator {
         return res;
     }
 
+    /**
+     * This method computes the sum of squares of a PRNU pattern
+     *
+     * @param pattern   a float array containing the pattern
+     * @returns         the sum of squares as a double
+     */
     public double sumSquaredGPU(float[] pattern) {
         //copy input to GPU
         _d_input1.copyHostToDeviceAsync(pattern, _stream);
@@ -236,11 +273,20 @@ public class NormalizedCrossCorrelation implements PatternComparator {
         return result[0];
     }
 
+    /**
+     * This method prints some GPU performance stats
+     */
     public void printTime() {
         System.out.println("total GPU kernel time: " + total_kernel_time + " ms. on average: " + (total_kernel_time / (double)total_called) + " ms.");
         System.out.println("Average bandwidth per kernel: " + (total_bandwidth / (total_kernel_time/1000.0)) + " GB/s.");
     }
 
+    /**
+     * This method computes the sum of squares of a PRNU pattern on the CPU
+     * 
+     * @param pattern   a float array containing a PRNU pattern
+     * @returns         a double containing the sum of squares
+     */
     public static double sumSquared(final float[] pattern) {
 	    double sumsq = 0.0;
 	    for (int i=0; i<pattern.length; i++) {
@@ -249,6 +295,16 @@ public class NormalizedCrossCorrelation implements PatternComparator {
 	    return sumsq;
     }
 
+    /**
+     * This method performs an array of comparisons between patterns on the CPU
+     * It computes the NCC scores between pattern x and y
+     *
+     * @param x         a PRNU patterns stored as a float array
+     * @param sumsq_x   the sum squared of pattern x
+     * @param y         a PRNU patterns stored as a float array
+     * @param sumsq_y   the sum squared of pattern y
+     * @returns         the NCC scores from comparing patterns x and y
+     */
     public static double compare(final float[] x, double sumsq_x, final float[] y, double sumsq_y) {
 	    double sum_xy = 0.0;
             for (int i=0; i<x.length; i++) {
