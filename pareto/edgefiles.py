@@ -28,6 +28,13 @@ class EdgeFiles(object):
 
 
     def __str__(self):
+        """
+        Override object's __str__ method with a pretty-print method of our own. This iterates over all elements in
+        self.parSpace first, printing the x and y (there are always exactly two parSpace dimensions for this problem,
+        because it's always a comparison between a pair of photographs), then adds the objective scores as well and
+        finally also prints the pareto score if it exists
+        :return: s -- string with pretty-printed representation of self.parSpace and self.objSpace
+        """
 
         nCharsIndent = 0
         for key in self.objSpace[0].keys():
@@ -95,6 +102,12 @@ class EdgeFiles(object):
         """
 
         def otherPointUnderPoint(op, p):
+            """
+            Calculate whether op is under p, i.e. whether op is smaller than p in all dimensions
+            :param op: other point, n-dimensional dict with a numerical score for each objective
+            :param p: point, n-dimensional dict with a numerical score for each objective
+            :return: True if there is another point under point, i.e. smaller in all dimensions, False otherwise
+            """
 
             if 'goldberg' in op.keys() and op['goldberg'] < iRank:
                 return False
@@ -107,9 +120,15 @@ class EdgeFiles(object):
             return opUnderP
 
 
-        def hypercubeIsEmpty(point):
+        def hyperRectIsEmpty(point):
+            """
+            Determine whether there is any point in self.objSpace which is under point, and if so return False because
+            in that case hyperrect is not empty
+            :param point: n-dimensional dict, in which each key is a numerical objective score
+            :return:
+            """
 
-            # naively assume that hypercube is empty (initially)
+            # initially assume that hyperrect is empty
             isempty = True
             for otherpoint in self.objSpace:
                 if otherPointUnderPoint(otherpoint, point):
@@ -118,7 +137,7 @@ class EdgeFiles(object):
             return isempty
 
 
-        # if the hypercube from the origin to the point contains no other points, the point is pareto-dominant
+        # if the hyperrect from the origin to the point contains no other points, the point is pareto-dominant
         nRanked = 0
         iRank = 0
         while nRanked < len(self.objSpace):
@@ -126,7 +145,7 @@ class EdgeFiles(object):
             for point in self.objSpace:
                 if 'goldberg' in point.keys():
                     continue
-                if hypercubeIsEmpty(point):
+                if hyperRectIsEmpty(point):
                     point.update({'goldberg': iRank})
                     nRanked += 1
 
@@ -134,17 +153,22 @@ class EdgeFiles(object):
 
 
 
-
 if __name__ == '__main__':
 
-
+    # make a python object representation of the data in these two files:
     obj1 = EdgeFile('../data/paretotest/obj1.txt', 'obj1')
     obj2 = EdgeFile('../data/paretotest/obj2.txt', 'obj2')
 
+    # initialize the object that will merge all the info from separate EdgeFile objects
     edgeFiles = EdgeFiles()
+    # add the EdgeFile objects, merging with any previous objects
     edgeFiles.add(obj1)
     edgeFiles.add(obj2)
 
+    # calc the goldberg pareto scores given the objective score we just added
     edgeFiles.calcPareto()
 
+    # pretty-print the result
     print(edgeFiles)
+
+
