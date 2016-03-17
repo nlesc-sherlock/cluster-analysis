@@ -50,8 +50,7 @@ class EdgeFile(object):
 
 if __name__ == '__main__':
 
-
-    obj1 = EdgeFile('../data/pentax/edgelist-pentax-obj1.txt', 'obj1')
-    obj2 = EdgeFile('../data/pentax/edgelist-pentax-obj2.txt', 'obj2')
+    obj1 = EdgeFile('../data/pentax/edgelist-pentax-ncc.txt', 'ncc')
+    obj2 = EdgeFile('../data/pentax/edgelist-pentax-pce.txt', 'pce')
 
     print('Done.')
