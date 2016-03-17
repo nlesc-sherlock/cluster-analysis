@@ -1,7 +1,8 @@
 #! /usr/bin/env python
 
-# python3 style import:
 from edgefile import EdgeFile
+import plotly as py
+import plotly.graph_objs as grob
 
 class EdgeFiles(object):
     """
@@ -14,8 +15,8 @@ class EdgeFiles(object):
         the constructor should be documented in this docstring
         """
 
-        # the file that the edge data is loaded from
-        self.filenames = []
+        # the list of files that the edge data is loaded from
+        self.filenames = None
 
         # the 2-D, nominal parameter space
         self.parSpace = None
@@ -23,8 +24,11 @@ class EdgeFiles(object):
         # the objective score associated with a point in the parameter space
         self.objSpace = None
 
-        # create an empty set
-        self.ulistphotos = None
+        # the names of the objective functions
+        self.objNames = None
+
+        # create an empty set that will hold a list of file names of the photos
+        self.usetphotos = None
 
 
     def __str__(self):
@@ -72,23 +76,29 @@ class EdgeFiles(object):
         :return: self
         """
 
-        isFirstTime = self.filenames == []
+        if self.filenames is None:
 
-        self.filenames.append(edgefile.filename)
-
-        if isFirstTime:
+            self.filenames = [edgefile.filename]
 
             self.parSpace = edgefile.parSpace
+
             self.objSpace = edgefile.objScores
-            self.ulistphotos = edgefile.ulistphotos
+
+            self.objNames = [edgefile.objName]
+
+            self.usetphotos = edgefile.usetphotos
 
         else:
 
-            # check if ulistphotos has the same entries, raise exception otherwise
-            if len(self.ulistphotos - edgefile.ulistphotos) == 0:
+            # check if usetphotos has the same entries, raise exception otherwise
+            if len(self.usetphotos - edgefile.usetphotos) == 0:
                 print('Sets are equal. Proceeding with merge.')
             else:
                 raise Exception('Sets from "' + self.filenames[0] + '" and "' +  edgefile.filename + '" are not equal. Aborting.')
+
+            self.filenames.append(edgefile.filename)
+
+            self.objNames.append(edgefile.objName)
 
             for iother in range(0, len(edgefile.parSpace)):
                 iself = self.parSpace.index(edgefile.parSpace[iother])
@@ -152,6 +162,94 @@ class EdgeFiles(object):
         return self
 
 
+    def show(self, dimensions=None):
+
+        def getScatterObj(xObjName, yObjName):
+
+            x = []
+            y = []
+            for item in self.objSpace:
+                x.append(item[xObjName])
+                y.append(item[yObjName])
+
+            return grob.Scatter(
+                x = x,
+                y = y,
+                marker = grob.Marker(
+                    color = 'rgb(228,26,28)',
+                    size = 4
+                ),
+                mode = 'markers',
+                name = 'class 0',
+                opacity = 0.7,
+                xaxis = xObjName,
+                yaxis = yObjName
+            )
+
+        def getAxes(iDim, direction):
+
+            if direction == 'x':
+                return grob.XAxis(
+                    domain = [(iDim + 0.025) / nDims, (iDim + 0.95) / nDims],
+                    showline = False,
+                    title = dimensions[iDim],
+                    zeroline = False
+                )
+            elif direction == 'y':
+                return grob.YAxis(
+                    domain = [(iDim + 0.025) / nDims, (iDim + 0.95) / nDims],
+                    showline = False,
+                    title = dimensions[iDim],
+                    zeroline = False
+                )
+            else:
+                raise Exception('Your axis should be \'x\' or \'y\'.')
+
+
+
+        if not isinstance(dimensions, list):
+            raise Exception('"Input argument \'dimensions\' should be a list, but you\'ve provided a ' + str(type(dimensions)) + '"')
+
+        if dimensions is None:
+            dimensions = self.objNames
+
+        for dim in dimensions:
+            if dim not in self.objNames:
+                raise Exception('"You want to plot a dimension that doesn\'t exist."')
+
+        subplots=[]
+        nDims = len(dimensions)
+        width = 800
+        height = 600
+
+        for iRow in range(0, nDims):
+            for iCol in range(0, nDims):
+
+                scatterObj = getScatterObj(dimensions[iCol], dimensions[iRow])
+                subplots.append(scatterObj)
+
+        thedict = dict(
+            xaxis1= getAxes(0, 'x'),
+            xaxis2 = getAxes(1, 'x'),
+            yaxis1= getAxes(0, 'y'),
+            yaxis2 = getAxes(1, 'y')
+         )
+
+        layout = grob.Layout(
+            width = width,
+            height = height,
+            showlegend = False,
+            title = 'Scatterplot Matrix',
+            **thedict
+        )
+
+        fig = grob.Figure(data = subplots, layout = layout)
+        ploturl = py.offline.plot(fig)
+        print(ploturl)
+
+        return None
+
+
 
 if __name__ == '__main__':
 
@@ -167,6 +265,9 @@ if __name__ == '__main__':
 
     # calc the goldberg pareto scores given the objective score we just added
     edgeFiles.calcPareto()
+
+    # plot the objective space
+    edgeFiles.show(['obj1', 'obj2'])
 
     # pretty-print the result
     print(edgeFiles)
