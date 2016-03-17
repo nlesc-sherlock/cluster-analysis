@@ -2,8 +2,6 @@
 
 import sys
 import copy
-# import plotly.offline as py
-# import plotly.graph_objs as go
 
 
 class EdgeFile(object):
@@ -48,24 +46,6 @@ class EdgeFile(object):
 
             if photo2 not in self.ulistphotos:
                 self.ulistphotos.add(photo2)
-
-
-
-    # def plotlytest(self):
-    #
-    #     data = [
-    #         go.Heatmap(
-    #             z=[[1, 20, 30, 50, 1], [20, 1, 60, 80, 30], [30, 60, 1, -10, 20]],
-    #             x=['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-    #             y=['Morning', 'Afternoon', 'Evening']
-    #         )
-    #     ]
-    #     plot_url = py.plot(data, filename='labelled-heatmap')
-    #
-    # def show(self):
-    #
-    #     labels = sorted(self.ulistphotos)
-
 
 
 if __name__ == '__main__':
