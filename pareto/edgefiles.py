@@ -214,7 +214,7 @@ class EdgeFiles(object):
                         zeroline=False,
                         type=u'linear',
                         ticks=u'outside',
-                        mirror='ticks',
+                        mirror='allticks',
                         linecolor=u'rgb(16, 16, 16)',
                         linewidth=1)}
             elif direction == 'y':
@@ -227,7 +227,7 @@ class EdgeFiles(object):
                         zeroline=False,
                         type=u'linear',
                         ticks=u'outside',
-                        mirror='ticks',
+                        mirror='allticks',
                         linecolor=u'rgb(16, 16, 16)',
                         linewidth=1)}
             else:
