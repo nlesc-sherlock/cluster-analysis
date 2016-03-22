@@ -46,7 +46,6 @@ class EdgeFile(object):
             # commence the loading from file
             self.load(objname)
 
-
     def __str__(self):
         """
         Override object's __str__ method with a pretty-print method of our own. This iterates over all elements in
