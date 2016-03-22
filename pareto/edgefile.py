@@ -46,6 +46,45 @@ class EdgeFile(object):
             # commence the loading from file
             self.load(objname)
 
+
+    def __str__(self):
+        """
+        Override object's __str__ method with a pretty-print method of our own. This iterates over all elements in
+        self.parSpace first, printing the x and y (there are always exactly two parSpace dimensions for this problem,
+        because it's always a comparison between a pair of photographs), then adds the objective score
+        :return: s -- string with pretty-printed representation of self.parSpace and self.objSpace
+        """
+
+        ncharsindent = 0
+        for key in self.objScores[0].keys():
+            if len(key) > ncharsindent:
+                ncharsindent = len(key) + 2
+
+        s = ''
+        formatstr = '{: >' + str(ncharsindent) + '}: '
+        for iElem in range(0, len(self.parSpace)):
+            s += '{\n'
+            s += formatstr.format('\'x\'')
+            s += '\'' + str(self.parSpace[iElem]['x']) + '\''
+            s += '\n'
+            s += formatstr.format('\'y\'')
+            s += '\'' + str(self.parSpace[iElem]['y']) + '\''
+            s += '\n'
+
+            s += formatstr.format('\'' + self.objName + '\'')
+            s += str(self.objScores[iElem][self.objName])
+            s += '\n'
+            if iElem < len(self.parSpace) - 1:
+                s += '},\n'
+            else:
+                s += '}\n'
+
+        return s
+
+    def print(self):
+        # defer to self.__str__()
+        print(self.__str__())
+
     def load(self, objname):
 
         # read all the data from the edge file
@@ -98,15 +137,13 @@ if __name__ == '__main__':
     # obj2 = EdgeFile('../data/pentax/edgelist-pentax-pce.txt', 'pce')
 
     obj1 = EdgeFile('../data/paretotest/obj1.txt', 'obj1')
-    for s in obj1.objScores:
-        print(s)
+    obj1.print()
+
+    print('\n')
 
     obj1.lineartransform = {'slope': 2, 'intercept': -1}
     obj1.applytransform()
 
-    print()
-
-    for s in obj1.objScores:
-        print(s)
+    obj1.print()
 
     print('Done.')
