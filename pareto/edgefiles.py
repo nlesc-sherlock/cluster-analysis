@@ -1,9 +1,14 @@
 #! /usr/bin/env python
 
+import sys
 from edgefile import EdgeFile
 import plotly.offline as offlineplotly
 import plotly.graph_objs as grob
 from plotly import tools
+
+# Python 3 required
+assert sys.version_info[0] == 3, "This code needs Python 3"
+
 
 
 class EdgeFiles(object):
