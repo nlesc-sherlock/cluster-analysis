@@ -28,10 +28,10 @@ class EdgeFiles(object):
         # the 2-D, nominal parameter space
         self.parSpace = None
 
-        # the objective score associated with a point in the parameter space
+        # the objective score(s) associated with a point in the parameter space
         self.objSpace = None
 
-        # the names of the objective functions
+        # the name(s) of the objective functions
         self.objNames = None
 
         # create an empty set that will hold a list of file names of the photos
