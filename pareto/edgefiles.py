@@ -10,7 +10,6 @@ from plotly import tools
 assert sys.version_info[0] == 3, "This code needs Python 3"
 
 
-
 class EdgeFiles(object):
     """
     This class is used to merge different EdgeFiles. It keeps a master list of points in the parameter space for which
@@ -182,8 +181,13 @@ class EdgeFiles(object):
     def show(self, dimensions=None):
 
         def getscatterobj(xobjname, yobjname):
-
-            print('{:s} v {:s}'.format(xobjname, yobjname))
+            """
+            Constructs a 2-D Scatter trace object where each point is a combination of the objective score for objective
+            'xobjname' and of the objective score of objective 'yobjname'.
+            :param xobjname: objective score for the horizontal axis
+            :param yobjname: objective score for the vertical axis
+            :return: plotly Scatter object
+            """
 
             x = []
             y = []
@@ -208,6 +212,14 @@ class EdgeFiles(object):
             )
 
         def getaxes(idim, direction):
+            """
+            Returns a plotly xaxis or a plotly yaxis, with properties. They are stored together as a dictionary.
+            :param idim: this parameter indicates which dimension out of 'dimensions' we currently need an axis for
+            :param direction: this parameter indicates whether we are looking for an xaxis or a yaxis.
+            :return: a dictionary containing either (1) the dictionary key 'xaxisN' where N is an integer, followed by
+            its value, a plotly XAxis with properties; or (2) the dictionary key 'yaxisN' where N is an integer,
+            followed by its value, a plotly YAxis with properties
+            """
 
             if direction == 'x':
                 axisstr = direction + 'axis' + str(idim + 1)
@@ -240,6 +252,7 @@ class EdgeFiles(object):
             else:
                 raise Exception('Your axis should be \'x\' or \'y\'.')
 
+        # check the input type
         if not isinstance(dimensions, list):
             raise Exception('"Input argument \'dimensions\' should be a list, but you\'ve provided a ' +
                             str(type(dimensions)) + '"')
@@ -251,6 +264,7 @@ class EdgeFiles(object):
             if dim not in self.objNames:
                 raise Exception('"You want to plot a dimension that doesn\'t exist."')
 
+        # how many dimensions we're plotting
         ndims = len(dimensions)
 
         # don't open new browser tabs/windows every time you run the script:
@@ -310,7 +324,7 @@ if __name__ == '__main__':
     edgeFiles.add(obj1)
     edgeFiles.add(obj2)
 
-    # calc the goldberg pareto scores given the objective score we just added
+    # calc the goldberg pareto scores given the objective scores we just added
     edgeFiles.calcpareto()
 
     # plot the objective space
