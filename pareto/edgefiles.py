@@ -187,16 +187,16 @@ class EdgeFiles(object):
 
             x = []
             y = []
-            rank = []
+            ranktext = []
             for item in self.objSpace:
                 x.append(item[xobjname])
                 y.append(item[yobjname])
-                rank.append(str(item['goldberg']))
+                ranktext.append('rank: ' + str(item['goldberg']))
 
             return grob.Scatter(
                 x=x,
                 y=y,
-                text=rank,
+                text=ranktext,
                 marker=grob.Marker(
                     symbol='cross',
                     color='rgb(237,0,178)',
@@ -221,6 +221,7 @@ class EdgeFiles(object):
                         ticks=u'outside',
                         mirror='allticks',
                         linecolor=u'rgb(16, 16, 16)',
+                        gridcolor=u'rgb(185, 185, 185)',
                         linewidth=1)}
             elif direction == 'y':
                 axisstr = direction + 'axis' + str(ndims - idim)
@@ -234,6 +235,7 @@ class EdgeFiles(object):
                         ticks=u'outside',
                         mirror='allticks',
                         linecolor=u'rgb(16, 16, 16)',
+                        gridcolor=u'rgb(185, 185, 185)',
                         linewidth=1)}
             else:
                 raise Exception('Your axis should be \'x\' or \'y\'.')
@@ -300,7 +302,6 @@ if __name__ == '__main__':
     # make a python object representation of the data in these two files:
     obj1 = EdgeFile('../data/paretotest/obj1.txt', 'obj1')
     obj2 = EdgeFile('../data/paretotest/obj2.txt', 'obj2')
-    obj3 = EdgeFile('../data/paretotest/obj2.txt', 'obj2_2')
 
     # initialize the object that will merge all the info from separate EdgeFile objects
     edgeFiles = EdgeFiles()
@@ -308,13 +309,12 @@ if __name__ == '__main__':
     # add the EdgeFile objects, merging with any previous objects
     edgeFiles.add(obj1)
     edgeFiles.add(obj2)
-    edgeFiles.add(obj3)
 
     # calc the goldberg pareto scores given the objective score we just added
     edgeFiles.calcpareto()
 
     # plot the objective space
-    edgeFiles.show(['obj1', 'obj2', 'obj2_2'])
+    edgeFiles.show(['obj1', 'obj2'])
 
     edgeFiles.print()
 
