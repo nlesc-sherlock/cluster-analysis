@@ -1,0 +1,8 @@
+/testdata
+/reports
+/bin
+/jar
+.*
+*.out
+*.dat
+*.txt

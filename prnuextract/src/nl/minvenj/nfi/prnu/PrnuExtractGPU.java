@@ -20,7 +20,8 @@ import java.io.File;
 import java.awt.image.BufferedImage;
 import nl.minvenj.nfi.prnu.filtergpu.*;
 import nl.minvenj.nfi.prnu.compare.PeakToCorrelationEnergy;
-import nl.minvenj.nfi.prnu.NormalizedCrossCorrelation;
+import nl.minvenj.nfi.prnu.compare.NormalizedCrossCorrelation;
+import nl.minvenj.nfi.prnu.compare.PatternComparator;
 
 import nl.minvenj.nfi.prnu.Util;
 
@@ -103,23 +104,26 @@ public class PrnuExtractGPU {
      * @param patternsGPU   an array of PRNU patterns stored as float arrays, no longer in use, using cache instead
      * @returns             a matrix containing the NCC scores for all the images in this dataset
      */
-    double[][] computeNCC(String[] filenames, float[][] patternsGPU) {
+    double[][] computeNCC(String[] filenames, float[][] patternsGPU, boolean CPU) {
         int numfiles = filenames.length;
         double cortable[][] = new double[numfiles][numfiles];
+        long start, end;
+
+        NormalizedCrossCorrelation NCC = new NormalizedCrossCorrelation(
+                this.height,
+                this.width, filterFactory.getContext(),
+                filterFactory.compile("NormalizedCrossCorrelation.cu"), 
+                filterFactory.compile("PeakToCorrelationEnergy.cu"));
 
         System.out.println("Comparing patterns...");
-        PrintWriter edgefile = null;
-        try {
-            edgefile = new PrintWriter(EDGELIST_FILENAME);
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.exit(1);
-        }
 
         double[] sumsquares = new double[numfiles];
         for (int i=0; i<numfiles; i++) {
-//            sumsquares[i] = NormalizedCrossCorrelation.sumSquared(patternsGPU[i]);
-            sumsquares[i] = NormalizedCrossCorrelation.sumSquared(cache.retrieve(filenames[i]));
+            if (CPU) { 
+                sumsquares[i] = NormalizedCrossCorrelation.sumSquared(cache.retrieve(filenames[i]));
+            } else {
+                sumsquares[i] = NCC.sumSquaredGPU(cache.retrieve(filenames[i]));
+            }
         }
         System.out.println("Finished computing sum of squares");
 
@@ -131,162 +135,67 @@ public class PrnuExtractGPU {
         stddev = Math.sqrt(stddev / (double)numfiles);
         System.out.println("Standard deviation of all patterns combined is: " + stddev + " 1/sigma= " + 1.0/stddev);
 
-        int total = (numfiles*numfiles)/2 - numfiles/2;
-        int c = 0;
-        System.out.println("     ");
+        if (CPU) {
+            //compare all patterns one-by-one on the CPU
+            int total = (numfiles*numfiles)/2 - numfiles/2;
+            int c = 0;
+            System.out.println("     ");
 
-        //compare patterns and print edgelist
-        for (int i=0; i<numfiles; i++) {
-          //patternsGPU[i] = read_float_array_from_file(filenames[i], patternSize);
-          for (int j=0; j<i; j++) {
-            //patternsGPU[j] = read_float_array_from_file(filenames[j], patternSize);
-//            cortable[i][j] = NormalizedCrossCorrelation.compare(patternsGPU[i], sumsquares[i], patternsGPU[j], sumsquares[j]);
-            cortable[i][j] = NormalizedCrossCorrelation.compare(cache.retrieve(filenames[i]), sumsquares[i], cache.retrieve(filenames[j]), sumsquares[j]);
+            for (int i=0; i<numfiles; i++) {
+              for (int j=0; j<i; j++) {
+                cortable[i][j] = NormalizedCrossCorrelation.compare(cache.retrieve(filenames[i]), sumsquares[i], cache.retrieve(filenames[j]), sumsquares[j]);
+                cortable[j][i] = cortable[i][j];
+                c++;
 
-            edgefile.println(filenames[i] + " " + filenames[j] + " " + cortable[i][j]);
-            //System.out.println(filenames[i] + " " + filenames[j] + " " + cortable[i][j]);
-            cortable[j][i] = cortable[i][j];
-
-            //patternsGPU[j] = null;
-            c++;
-
-            if (c % 50 == 0) {
-              System.out.format("\r Progress: %2.2f %%", (((float)c/(float)total)*100.0));
-              edgefile.flush();
+                if (c % 50 == 0) {
+                  System.out.format("\r Progress: %2.2f %%", (((float)c/(float)total)*100.0));
+                }
+              }
             }
-          }
-          //patternsGPU[i] = null;
+        
+        } else {
+            //do a blocked comparison on the GPU
+            cortable = blockedCompare(filenames, NCC.num_patterns, NCC);
+
+            //do the divison on the CPU
+            for (int i=0; i<numfiles; i++) {
+                for (int j=0; j<numfiles; j++) {
+                    cortable[i][j] = cortable[i][j] / Math.sqrt(sumsquares[i] * sumsquares[j]);
+                }
+            }
+
+
         }
-        edgefile.close();
+        NCC.printTime();
 
         return cortable;
     }
 
 
+
     /**
-     * This method computes the PCE scores on the GPU for all images in the array filenames
+     * This method performs a block-tiled comparison of PRNU patterns
      *
-     * This method uses a block-tiled loop to iterate over its iteration domain,
-     * this is to enable data reuse on the GPU and also enables data reuse in the PRNU pattern cache.
-     *
-     * @param filenames     a String array containing all the filenames of the images to be compared
-     * @param patternsGPU   an array of PRNU patterns stored as float arrays, no longer in use, using cache instead
-     * @param useRealPeak   a boolean specifying the variant of PCE to be computed, true uses real peak, false uses last pixel instead
-     * @returns             a matrix containing the PCE scores for all the images in this dataset
+     * @param filenames     a String array of filenames of the JPG files to be compared
+     * @param block_size    an int describing the block size of the block-tiled loop
+     * @param PSM           a PRNU pattern similarity metric that implements the PatternComparator interface
      */
-    double[][] computePCE(String[] filenames, float[][] patternsGPU, boolean useRealPeak) {
+    public double[][] blockedCompare(String[] filenames, int block_size, PatternComparator PSM) {
+
         int numfiles = filenames.length;
         double cortable[][] = new double[numfiles][numfiles];
-
-        //instantiate the PCE object for making comparisons
-        //this starts with obtaining the CudaModule object from the
-        //filterFactory which is misused as an interface to the compiler
-        PeakToCorrelationEnergy PCE = new PeakToCorrelationEnergy(
-                this.height,
-                this.width, filterFactory.getContext(), 
-                filterFactory.compile("PeakToCorrelationEnergy.cu"), useRealPeak);
-
-        System.out.println("Comparing patterns...");
-
-        //open edgefile for writing output as and edgelist
-        PrintWriter edgefile = null;
-        try {
-            edgefile = new PrintWriter(EDGELIST_FILENAME);
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.exit(1);
-        }
-
-        //the total number of comparisons is N over 2, where N is the number of files
-        int total = (numfiles*numfiles)/2 - numfiles/2;
         int c = 0;
-        //print a newline for the Progress prints
-        System.out.println("            "); 
+        int total = numfiles*numfiles/2 - numfiles/2;
 
-        long start = System.nanoTime();
-
-/* one-for-one comparison
-
-        for (int i=0; i<numfiles; i++) {
-          //patternsGPU[i] = filter.apply(Util.readImage(INPUT_FILES[i]));
-          //patternsGPU_fft[i] = read_float_array_from_file(filenames[i], patternSize);
-          //patternsGPU[i] = read_float_array_from_file(filenames[i], patternSize);
-
-          for (int j=0; j<i; j++) {
-            //patternsGPU[j] = filter.apply(Util.readImage(INPUT_FILES[j]));
-            //patternsGPU_fft[j] = read_float_array_from_file(filenames[j], patternSize);
-
-            //start = System.nanoTime();            
-            //patternsGPU[j] = read_float_array_from_file(filenames[j], patternSize);
-            //end = System.nanoTime();
-            //double readtime = (end-start)/1e6;
-            //System.out.println("reading file" + filenames[i] + "took: " + readtime + " ms.");
-
-            //start = System.nanoTime();            
-            //cortable[i][j] = PCE.compare(patternsGPU[i], patternsGPU[j]);
-            //end = System.nanoTime();
-            //double cputime = (end-start)/1e6;
-
-            //long start_gpu = System.nanoTime();
-            cortable[i][j] = PCE.compareGPU(patternsGPU[i], patternsGPU[j]);
-            //long end_gpu = System.nanoTime();
-            //double gputime = (end_gpu-start_gpu)/1e6;
-            //System.out.println("GPU PCE took:" + gputime + " ms.");
-
-            edgefile.println(filenames[i] + " " + filenames[j] + " " + cortable[i][j]);
-            //System.out.println(filenames[i] + " " + filenames[j] + " cpu=" + cortable[i][j] + " " + cputime + " ms." +
-            //                        " gpu=" + GPU_SCORE + " " + gputime + " ms." );
-            cortable[j][i] = cortable[i][j];
-            c++;
-
-            if (c > 4) {
-                System.exit(1);
-            } else {
-                double check_score_cpu = PCE.compare(patternsGPU[i], patternsGPU[j]);
-                System.out.println("Verify score using one-on-one GPU: " + cortable[i][j] + " CPU:" + check_score_cpu);
-
-            }
-
-            if (c % 50 == 0) {
-                //long start_output = System.nanoTime();
-                //System.out.println("     ");
-                System.out.format("\r Progress: %2.2f %%", (((float)c/(float)total)*100.0));
-                   //System.out.print("\n");
-                edgefile.flush();
-                //System.out.println("Format progress output and edgefile.flush took:" + (System.nanoTime()-start_output)/1e6 + " ms.");
-
-            }
-            //patternsGPU[j] = null;
-          }
-          //patternsGPU[i] = null;
-        }
-        end = System.nanoTime();
-        System.out.println("Computed PCE scores for " + numfiles + " images in " + (end-start)/1e9 + " seconds.");
-
-        edgefile.close();
-
-*/
-//blocked comparison
-
-        //PCE constructor determines the amount of GPU memory available and chooses a num_patterns accordingly
-        int block_size = PCE.num_patterns;
+        //stuff needed for loop blocking
+        int iblocks = (int)Math.ceil(numfiles/(double)block_size);
+        boolean[][] predicate = new boolean[block_size][block_size];
+        double[][] result;
         float[][] xPatterns = new float[block_size][];
         float[][] yPatterns = new float[block_size][];
 
-        boolean debugPrint = false;
-
-        //small part of the correlation table that will be used to temporarily store the resulting PCE scores of this block
-        double[][] result;
-
-        //small predicate table of block_size*block_size used to control which comparisons are made
-        //the iteration space of the blocked loop may exceed that of the original domain, therefore some blocks will be partially predicated
-        boolean[][] predicate = new boolean[block_size][block_size];
-
-        //number of blocks in the i-direction (basically the number of rows containing blocks)
-        int iblocks = (int)Math.ceil(numfiles/(double)block_size);
-
+        //compare patterns and print edgelist
         for (int i=0; i<iblocks; i++) {
-            //the number of blocks on this row, +1 to have at least one block and to include the diagonal
             int jblocks = i+1;
 
             for (int j=0; j<jblocks; j++) {
@@ -332,25 +241,7 @@ public class PrnuExtractGPU {
                     }
                 }
 
-                if (debugPrint) {
-                    System.out.println("predicate matrix:");
-                    for (int ib=0; ib<block_size; ib++) {
-                        for (int jb=0; jb<block_size; jb++) {
-                            System.out.print(predicate[ib][jb] + " ");
-                        }
-                        System.out.println();
-                    }
-                    System.out.println();
-                }
-
-                //finally start the computation for this block
-                //long start_gpu = System.nanoTime();
-                result = PCE.compareGPU(xPatterns, yPatterns, predicate);
-                //long end_gpu = System.nanoTime();
-                //double gpu_time = (end_gpu - start_gpu) / 1e6;
-                //if (debugPrint) { 
-                //    System.out.println("Blocked PCE GPU took: " + gpu_time + " ms. on average: " + gpu_time/(non_null) + " ms.");
-                //}
+                result = PSM.compareGPU(xPatterns, yPatterns, predicate);
 
                 c += non_null;
                 System.out.format("\r Progress: %2.2f %%", (((float)c/(float)total)*100.0));
@@ -365,27 +256,44 @@ public class PrnuExtractGPU {
                         if (gi < numfiles && gj < gi && predicate[ib][jb]) {
                             cortable[gi][gj] = result[ib][jb];
                             cortable[gj][gi] = cortable[gi][gj];
-                            edgefile.println(filenames[gi] + " " + filenames[gj] + " " + cortable[gi][gj]);
-                            //System.out.println(filenames[gi] + " " + filenames[gj] + " " + cortable[gi][gj]); // debug
-                            if (debugPrint) {
-                                System.out.println(filenames[gi] + " " + filenames[gj] + " " + cortable[gi][gj]);
-                                double check_score_gpu = PCE.compareGPU(patternsGPU[gi], patternsGPU[gj]);
-                                double check_score_cpu = PCE.compare(patternsGPU[gi], patternsGPU[gj]);
-                                System.out.println("Verify score using one-by-one GPU: " + check_score_gpu + " CPU:" + check_score_cpu);
-                            }
 
                         }
                     }
-                }                            
-                
+                }
 
-            }
-        }
 
-        long end = System.nanoTime();
-        System.out.println("\rComputed PCE scores for " + numfiles + " images in " + (end-start)/1e9 + " seconds.");
+            } //end of blocked loop
+        } 
 
-        edgefile.close();
+        System.out.println(); // end the line with progress report
+        return cortable;
+    }
+
+
+
+    /**
+     * This method computes the PCE scores on the GPU for all images in the array filenames
+     *
+     * This method uses a block-tiled loop to iterate over its iteration domain,
+     * this is to enable data reuse on the GPU and also enables data reuse in the PRNU pattern cache.
+     *
+     * @param filenames     a String array containing all the filenames of the images to be compared
+     * @param patternsGPU   an array of PRNU patterns stored as float arrays, no longer in use, using cache instead
+     * @param useRealPeak   a boolean specifying the variant of PCE to be computed, true uses real peak, false uses last pixel instead
+     * @returns             a matrix containing the PCE scores for all the images in this dataset
+     */
+    double[][] computePCE(String[] filenames, float[][] patternsGPU, boolean useRealPeak) {
+        int numfiles = filenames.length;
+        double cortable[][] = new double[numfiles][numfiles];
+
+        PeakToCorrelationEnergy PCE = new PeakToCorrelationEnergy(
+                this.height,
+                this.width, filterFactory.getContext(), 
+                filterFactory.compile("PeakToCorrelationEnergy.cu"), useRealPeak);
+
+        System.out.println("Comparing patterns...");
+
+        cortable = blockedCompare(filenames, PCE.num_patterns, PCE);
 
         return cortable;
     }
@@ -405,9 +313,9 @@ public class PrnuExtractGPU {
         long end = 0;
         
         this.testcase = testcase;
-        this.EDGELIST_FILENAME = "/var/scratch/bwn200/edgelist-" + testcase + ".txt";
-        this.MATRIX_BIN_FILENAME = "/var/scratch/bwn200/matrix-" + testcase + ".dat";
-        this.MATRIX_TXT_FILENAME = "/var/scratch/bwn200/matrix-" + testcase + ".txt";
+        this.EDGELIST_FILENAME = "edgelist-" + testcase + ".txt";
+        this.MATRIX_BIN_FILENAME = "matrix-" + testcase + ".dat";
+        this.MATRIX_TXT_FILENAME = "matrix-" + testcase + ".txt";
         this.TESTDATA_FOLDER = new File(folderpath);
 
         //instantiate the PRNUFilterFactory to compile CUDA source files
@@ -443,11 +351,6 @@ public class PrnuExtractGPU {
         //create the filterfactory, this compiles the CUDA modules that are part of PRNUFilter
         this.filter = filterFactory.createPRNUFilter(image.getHeight(), image.getWidth());
 
-        //either extract all patterns here or use cache
-        //extractPatterns(filenames, patternsGPU, INPUT_FILES);
-        //free resources on the GPU
-        //filter.cleanup();
-
         //clear up some memory of stuff we no longer need
         image = null;
         for (int i=0; i<numfiles; i++) {
@@ -465,11 +368,15 @@ public class PrnuExtractGPU {
         System.out.println("Populating the cache took " + (end-start)/1e9 + " seconds.");
 
         double cortable[][];
+        start = System.nanoTime();
 
         //depending on the mode call the appropiate routine for computing the similarity metric
         switch (mode) {
+            case "NCCcpu":
+                cortable = computeNCC(filenames, patternsGPU, true);
+                break;
             case "NCC":
-                cortable = computeNCC(filenames, patternsGPU);
+                cortable = computeNCC(filenames, patternsGPU, false);
                 break;
             case "PCE":
                 cortable = computePCE(filenames, patternsGPU, true);
@@ -478,15 +385,20 @@ public class PrnuExtractGPU {
                 cortable = computePCE(filenames, patternsGPU, false);
                 break;
             default:
-                throw new IllegalArgumentException("Invalid mode use NCC|PCE|PCE0: " + mode);
+                throw new IllegalArgumentException("Invalid mode use NCC(cpu)|PCE|PCE0: " + mode);
         }
+
+        end = System.nanoTime();
+        System.out.println("Computing similarity scores took " + (end-start)/1e9 + " seconds.");
+
+        //write edgelist
+        write_edgelist(cortable, filenames);
 
         //write the correlation matrix to disk in binary and text form
         write_matrix_text(cortable);
         write_matrix_binary(cortable);
 
     }
-
 
     /**
      * Simple helper function to detect certain characters that would 
@@ -526,7 +438,7 @@ public class PrnuExtractGPU {
             System.out.println("folderpath does not exist or is not a directory");
             printUsage();
         }
-        String[] supportedModes = {"NCC", "PCE", "PCE0"};
+        String[] supportedModes = {"NCC", "NCCcpu", "PCE", "PCE0"};
         if (!Arrays.asList(supportedModes).contains(args[2])) {
             System.out.println("Unknown mode: " + args[2]);
             printUsage();
@@ -540,6 +452,31 @@ public class PrnuExtractGPU {
         System.exit(0);
     }
 
+
+    /**
+     * This method writes a correlation matrix to an edgelist text file
+     * The location of the text file is determined by the name of the testcase set by the user
+     * 
+     * @param cortable      a double matrix, with equal width and height, storing the results of a computation of a similarity metric or correlation
+     * @param filenames     a String array containing the filenames that were compared in the correlation
+     */
+    void write_edgelist(double[][] cortable, String[] filenames) {
+        PrintWriter edgefile = null;
+        try {
+            edgefile = new PrintWriter(EDGELIST_FILENAME);
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
+
+        int n = cortable[0].length;
+        for (int i=0; i<n; i++) {
+            for (int j=0; j<i; j++) {
+                 edgefile.println(filenames[i] + " " + filenames[j] + " " + cortable[i][j]);
+            }
+        }
+        edgefile.close();        
+    }
 
     /**
      * This method writes a correlation matrix to a binary file

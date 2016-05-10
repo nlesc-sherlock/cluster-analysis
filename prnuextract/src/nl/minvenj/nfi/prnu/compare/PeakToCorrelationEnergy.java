@@ -15,6 +15,7 @@
 */
 package nl.minvenj.nfi.prnu.compare;
 
+import nl.minvenj.nfi.prnu.compare.PatternComparator;
 import nl.minvenj.nfi.prnu.Util;
 import nl.minvenj.nfi.cuba.cudaapi.*;
 import jcuda.*;
@@ -35,7 +36,7 @@ import edu.emory.mathcs.jtransforms.fft.FloatFFT_2D;
  * @author Ben van Werkhoven <b.vanwerkhoven@esciencecenter.nl>
  * @version 0.1
  */
-public class PeakToCorrelationEnergy {
+public class PeakToCorrelationEnergy implements PatternComparator {
 
     protected CudaContext _context;
     protected CudaStream _stream1;
