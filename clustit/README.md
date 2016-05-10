@@ -17,7 +17,7 @@ Example usage
 
 Contributing to clustit
 -----------------------
-The kernel tuner follows the Google Python style guide, with Sphinxdoc docstrings for module public functions. If you want to
+The <i>clustit</i> tool follows the Google Python style guide, with Sphinxdoc docstrings for module public functions. If you want to
 contribute to the project please fork it, create a branch including your addition, and create a pull request.
 
 The tests use relative imports and can be run directly after making
