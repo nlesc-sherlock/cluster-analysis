@@ -34,6 +34,7 @@ limitations under the License.
 from __future__ import print_function
 import argparse
 import clustit.utils as utils
+from clustit.algorithms import *
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -41,17 +42,36 @@ def parse_arguments():
     mode.add_argument("-e", "--edgelist", help="name of the edgelist file")
     mode.add_argument("-m", "--matrix", help="name of distance matrix file")
     parser.add_argument("-n", "--names", help="filename storing a list of names for the items to be clustered, in case distance matrix is used")
+    parser.add_argument("-c", "--convert", help="convert similarity to distance with specified a cut-off value")
     parser.add_argument("clustering_algorithm", help="name of the clustering algorithm to use", choices=["hierarchical", "dbscan"])
     return parser.parse_args()
 
 if __name__ == "__main__":
     args = parse_arguments()
 
+    edgelist = None
     if args.edgelist:
         print("edgelist filename=" + args.edgelist)
+        edgelist = utils.read_edgelist_file(args.edgelist)
+
+    matrix = None
     if args.matrix:
         print("matrix filename=" + args.matrix)
+        matrix = utils.read_distance_matrix_file(args.matrix)
+
+    if args.convert:
+        print("convert=" + args.convert)
+        edgelist, matrix = utils.convert_similarity_to_distance(edgelist, matrix, float(args.convert))
+
     if args.names:
         print("names filenname=" + args.names)
     print("clustering_algorithm=" + args.clustering_algorithm)
 
+
+    if args.clustering_algorithm == 'hierarchical':
+        clustering = hierarchical_clustering(edgelist=edgelist, distance_matrix=matrix)
+    elif args.clustering_algorithm == 'dbscan':
+        clustering = dbscan(edgelist=edgelist, distance_matrix=matrix)
+
+
+    print(clustering)

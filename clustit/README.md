@@ -12,12 +12,34 @@ Dependencies
 
 Example usage
 -------------
-`./clustit <name of data file> <name of clustering algorithm> [optional parameters]`
+`./clustit.py (-e EDGELIST | -m MATRIX) <clustering_algorithm> [optional arguments]`
+
+specify either:
+  -e EDGELIST, --edgelist EDGELIST
+                        name of the edgelist file
+  -m MATRIX, --matrix MATRIX
+                        name of distance matrix file
+
+for `clustering_algorithm`, choose from:
+    `hierarchical` or `dbscan`
+
+optional arguments:
+  -h, --help            show help message and exit
+  -n NAMES, --names NAMES
+                        filename storing a list of names for the items to be
+                        clustered, in case distance matrix is used
+  -c CONVERT, --convert CONVERT
+                        convert similarity to distance with specified a cut-
+                        off value
+
+Example:
+`./clustit.py -m ../data/pentax/matrix-pentax-pce.dat --convert=60 hierarchical`
+
 
 
 Contributing to clustit
 -----------------------
-The <i>clustit</i> tool follows the Google Python style guide, with Sphinxdoc docstrings for module public functions. If you want to
+Clustit follows the Google Python style guide, with Sphinxdoc docstrings for module public functions. If you want to
 contribute to the project please fork it, create a branch including your addition, and create a pull request.
 
 The tests use relative imports and can be run directly after making
