@@ -1,6 +1,5 @@
 """ util functions for use in clustit """
 import numpy
-from scipy.spatial.distance import squareform
 
 class MatrixReadError(Exception):
     pass
@@ -31,8 +30,10 @@ def read_distance_matrix_file(filename):
         matrix = matrix.reshape(numrows, numrows)
     elif extension == "txt":
         matrix = numpy.genfromtxt(filename, delimiter=",")
-        if matrix.shape[0] != matrix.shape[1] or len(matrix.shape) != 2:
+        if len(matrix.shape) != 2:
             raise MatrixReadError("Expected square 2D comma-separated matrix, one row per line")
+        n = min(matrix.shape)
+        matrix = matrix[0:n,0:n]
     else:
         raise UnknownFileFormat("Expected .dat or .txt file")
     return matrix
@@ -41,12 +42,25 @@ def edgelist_to_distance_matrix(edgelist):
     """ creates a distance matrix out of an edgelist, also returns list of names """
     #get unique names in n1, while preserving the order in n1
     #(using set() for n1 is not an option)
-    names1 = list(edgelist['n1'])
-    n1 = [e for i, e in enumerate(names1) if names1.index(e) == i]
-    n2 = set([n for n in edgelist['n2'] if n not in n1 ])
+    names1 = set(edgelist['n1'])
+    n1 = []
+    for i in edgelist['n1']:
+        if i in names1 and i not in n1:
+            n1.append(i)
+            names1.discard(i)
+    n2 = set([n for n in edgelist['n2'] if n not in n1])
     #could insert sanity check here that n2 has length exactly 1
     names = list(n2) + n1
-    matrix = squareform(edgelist['d'])
+    n = len(names)
+    matrix = numpy.zeros((n,n), dtype=numpy.float)
+    for i,d in enumerate(edgelist['d']):
+        n1 = edgelist[i]['n1']
+        n2 = edgelist[i]['n2']
+        mi = names.index(n1)
+        mj = names.index(n2)
+        matrix[mi,mj] = d
+        matrix[mj,mi] = d
+    numpy.fill_diagonal(matrix, 0.0)
     return matrix, names
 
 def distance_matrix_to_edgelist(matrix, names=None):
@@ -63,21 +77,14 @@ def distance_matrix_to_edgelist(matrix, names=None):
         ('n2', 'S'+str(max_len)), ('d', 'f64')])
     return edgelist
 
-def convert_similarity_to_distance(edgelist, matrix, cutoff):
+def similarity_to_distance(similarities, cutoff):
     """ convert the edgelist and/or matrix from similarity to distance using cutoff """
-    if edgelist is not None:
-        distances = edgelist['d']
-        distances[distances > cutoff] = cutoff
-        distances[distances < 0.0] = 0.0
-        distances += 0.0000001
-        distances = cutoff / distances
-        distances[distances > cutoff] = cutoff
-    if matrix is not None:
-        matrix[matrix > cutoff] = cutoff
-        matrix[matrix < 0.0] = 0.0
-        matrix += 0.0000001
-        matrix = cutoff / matrix
-        matrix[matrix > cutoff] = cutoff
-        numpy.fill_diagonal(matrix, 0.0)
-
-    return edgelist, matrix
+    distances = similarities
+    distances[distances > cutoff] = cutoff
+    distances[distances < 0.0] = 0.0
+    distances += 0.0000001
+    distances = cutoff / distances
+    distances[distances > cutoff] = cutoff
+    if len(distances.shape) == 2:
+        numpy.fill_diagonal(distances, 0.0)
+    return distances
