@@ -41,9 +41,13 @@ def edgelist_to_distance_matrix(edgelist):
     """ creates a distance matrix out of an edgelist, also returns list of names """
     #get unique names in n1, while preserving the order in n1
     #(using set() for n1 is not an option)
-    names1 = list(edgelist['n1'])
-    n1 = [e for i, e in enumerate(names1) if names1.index(e) == i]
-    n2 = set([n for n in edgelist['n2'] if n not in n1 ])
+    names1 = set(edgelist['n1'])
+    n1 = []
+    for i in edgelist['n1']:
+        if i in names1 and i not in n1:
+            n1.append(i)
+            names1.discard(i)
+    n2 = set([n for n in edgelist['n2'] if n not in n1])
     #could insert sanity check here that n2 has length exactly 1
     names = list(n2) + n1
     matrix = squareform(edgelist['d'])
