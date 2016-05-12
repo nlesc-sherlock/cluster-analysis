@@ -1,4 +1,6 @@
 library(manipulate)
+library(mixtools)
+
 
 ### This is the Ground truth
 filelist <-  read.table("/home/anandgavai/Sherlock3/cluster-analysis/data/pentax/filelist.txt",sep=" ")
@@ -8,6 +10,8 @@ filelist <-  read.table("/home/anandgavai/Sherlock3/cluster-analysis/data/pentax
 edgeList_ncc <- read.table("/home/anandgavai/Sherlock3/cluster-analysis/data/pentax/edgelist-pentax-ncc.txt",sep=" ")
 edgeList_pce <- read.table("/home/anandgavai/Sherlock3/cluster-analysis/data/pentax/edgelist-pentax-pce.txt",sep=" ")
 edgeList_pce0 <- read.table("/home/anandgavai/Sherlock3/cluster-analysis/data/pentax/edgelist-pentax-pce0.txt",sep=" ")
+
+
 
 
 
@@ -42,33 +46,29 @@ summary (pce0)
 pce_log<-log(pce)
 plot(hist(pce_log,breaks=c(1000)))
 
+nV<-pce_log
+#remove outliers from the distribution
+nV<-pce_log[!pce_log %in% boxplot.stats(pce_log)$out]
+boxplot(nV)
 
-#scaling between 0 and 1 
-nV<-(pce_log-min(pce_log))/(max(pce_log)-min(pce_log))
+x<-nV
+model <- normalmixEM(x=x, k=2)
+index.lower <- which.min(model$mu)  # Index of component with lower mean
 
-plot(density(nV))
+find.cutoff <- function(proba=0.5, i=index.lower) {
+  ## Cutoff such that Pr[drawn from bad component] == proba
+  f <- function(x) {
+    proba - (model$lambda[i]*dnorm(x, model$mu[i], model$sigma[i]) /
+               (model$lambda[1]*dnorm(x, model$mu[1], model$sigma[1]) + model$lambda[2]*dnorm(x, model$mu[2], model$sigma[2])))
+  }
+  return(uniroot(f=f, lower= as.numeric(quantile(x,0.05)), upper=as.numeric(quantile(x,0.95)))$root)  
+}
 
+cutoffs <- c(find.cutoff(proba=0.5), find.cutoff(proba=0.75)) 
 
-idx<-which(nV < 0.4)
-nV[idx]<-0.4
-
-idx2<-which(nV>0.9)
-nV[idx2]<-0.9
-
-plot(density(nV))
-
-
-x <- ((nV/0.35) - (0.4/0.35))^2
-x <- x/2
-
-plot(density(x))
+hist(x)
+abline(v=cutoffs, col=c("red", "blue"), lty=2)
 
 
-
-summary(log(pce))
-
-## Testing to check if values from adjacency matrix are same as values from edgeList
-mat_pce <- read.table("/home/anandgavai/Sherlock3/cluster-analysis/data/pentax/matrix-pentax-pce.txt",sep=",")
-mat_pce<-mat_pce[,1:638]
 
 
