@@ -31,4 +31,13 @@ def dbscan(edgelist=None, distance_matrix=None, threshold=None):
     return labels
 
 
+def spectral(edgelist=None, distance_matrix=None):
+    """ cluster using spectral clustering """
 
+    if edgelist is not None:
+        distance_matrix, names = utils.edgelist_to_distance_matrix(edgelist)
+
+    sc = sklearn.cluster.SpectralClustering(n_clusters=10, affinity='precomputed')
+    labels = sc.fit_predict(distance_matrix)
+
+    return labels
