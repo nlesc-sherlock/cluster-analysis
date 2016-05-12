@@ -12,7 +12,30 @@ Dependencies
 
 Example usage
 -------------
-`./clustit <name of data file> <name of clustering algorithm> [optional parameters]`
+```
+./clustit.py (-e EDGELIST | -m MATRIX) <clustering_algorithm> [optional arguments]
+
+specify either:
+  -e EDGELIST, --edgelist EDGELIST
+                        name of the edgelist file
+  -m MATRIX, --matrix MATRIX
+                        name of distance matrix file
+
+for clustering_algorithm, choose from:
+    hierarchical or dbscan
+
+optional arguments:
+  -h, --help            show help message and exit
+  -n NAMES, --names NAMES
+                        filename storing a list of names for the items to be
+                        clustered, in case distance matrix is used
+  -c CONVERT, --convert CONVERT
+                        convert similarity to distance with specified a cut-
+                        off value
+
+Example:
+./clustit.py -m ../data/pentax/matrix-pentax-pce.dat --convert=60 hierarchical
+```
 
 Copyright and License
 ---------------------
@@ -39,11 +62,11 @@ from clustit.algorithms import *
 def parse_arguments():
     parser = argparse.ArgumentParser()
     mode = parser.add_mutually_exclusive_group(required=True)
-    mode.add_argument("-e", "--edgelist", help="name of the edgelist file")
-    mode.add_argument("-m", "--matrix", help="name of distance matrix file")
-    parser.add_argument("-n", "--names", help="filename storing a list of names for the items to be clustered, in case distance matrix is used")
-    parser.add_argument("-c", "--convert", help="convert similarity to distance with specified a cut-off value")
-    parser.add_argument("clustering_algorithm", help="name of the clustering algorithm to use", choices=["hierarchical", "dbscan"])
+    mode.add_argument("-e", "--edgelist", help="name of the edgelist file", metavar='edgelist')
+    mode.add_argument("-m", "--matrix", help="name of distance matrix file", metavar='matrix')
+    parser.add_argument("-n", "--names", help="filename storing a list of names for the items to be clustered, in case distance matrix is used", metavar='names')
+    parser.add_argument("-c", "--convert", help="convert similarity to distance with specified a cut-off value", metavar='convert')
+    parser.add_argument("clustering_algorithm", help="name of the clustering algorithm to use", choices=["hierarchical", "dbscan"], metavar='clustering_algorithm')
     return parser.parse_args()
 
 if __name__ == "__main__":
