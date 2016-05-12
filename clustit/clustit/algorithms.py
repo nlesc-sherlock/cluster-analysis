@@ -4,7 +4,6 @@ import utils
 import scipy.cluster.hierarchy as sch
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import _cpy_linkage_methods
-import plot
 import numpy
 
 import sklearn.cluster
@@ -38,7 +37,6 @@ def agglomarative_clustering(edgelist=None, distance_matrix=None, num_clusters=8
     if edgelist is not None:
         distance_matrix, names = utils.edgelist_to_distance_matrix(edgelist)
 
-
     #all_methods =  _cpy_linkage_methods
     #all_metrics = ['precomputed', 'cosine', 'euclidean', 'cityblock', 'manhattan']
 
@@ -56,3 +54,15 @@ def agglomarative_clustering(edgelist=None, distance_matrix=None, num_clusters=8
         print method, metric
     return labels
 
+
+def spectral(edgelist=None, distance_matrix=None):
+    """ cluster using spectral clustering """
+
+    if edgelist is not None:
+        distance_matrix, names = utils.edgelist_to_distance_matrix(edgelist)
+
+
+    sc = sklearn.cluster.SpectralClustering(n_clusters=10, affinity='precomputed')
+    labels = sc.fit_predict(distance_matrix)
+
+    return labels
