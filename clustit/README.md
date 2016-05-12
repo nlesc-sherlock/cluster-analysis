@@ -34,7 +34,7 @@ optional arguments:
                         off value
 
 Example:
-./clustit.py -m ../data/pentax/matrix-pentax-pce.dat --convert=60 hierarchical
+./clustit.py -m ../data/pentax/matrix-pentax-pce.dat --convert=200 hierarchical
 ```
 
 Contributing to clustit

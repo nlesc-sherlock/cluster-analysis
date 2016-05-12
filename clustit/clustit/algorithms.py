@@ -24,7 +24,7 @@ def dbscan(edgelist=None, distance_matrix=None, threshold=None):
     if edgelist is not None:
         distance_matrix, names = utils.edgelist_to_distance_matrix(edgelist)
 
-    threshold = threshold or 1
+    threshold = threshold or 2.8
 
     core_samples, labels = sklearn.cluster.dbscan(distance_matrix, metric='precomputed',
                                 algorithm='brute', eps=threshold, min_samples=2)
