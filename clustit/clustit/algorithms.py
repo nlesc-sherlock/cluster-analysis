@@ -32,7 +32,7 @@ def dbscan(edgelist=None, distance_matrix=None, threshold=None):
                                 algorithm='brute', eps=threshold, min_samples=2)
     return labels
 
-def agglomarative_clustering(edgelist=None, distance_matrix=None, num_clusters=8, method='complete', metric='precomputed'):
+def agglomerative_clustering(edgelist=None, distance_matrix=None, num_clusters=8, method='complete', metric='precomputed'):
     """ computes an agglomerative clustering as one of the hierarchical clustering methods """
     if edgelist is not None:
         distance_matrix, names = utils.edgelist_to_distance_matrix(edgelist)
