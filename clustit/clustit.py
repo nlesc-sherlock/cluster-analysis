@@ -13,28 +13,32 @@ Dependencies
 Example usage
 -------------
 ```
-./clustit.py (-e EDGELIST | -m MATRIX) <clustering_algorithm> [optional arguments]
+usage: clustit.py [-h] (-e edgelist | -m matrix) [-n names] [-c convert]
+                  clustering_algorithm
 
 specify either:
-  -e EDGELIST, --edgelist EDGELIST
+  -e edgelist, --edgelist edgelist
                         name of the edgelist file
-  -m MATRIX, --matrix MATRIX
+  -m matrix, --matrix matrix
                         name of distance matrix file
 
-for clustering_algorithm, choose from:
-    hierarchical or dbscan
+positional arguments:
+  clustering_algorithm  name of the clustering algorithm to use
+                        choose from: hierarchical, dbscan
 
 optional arguments:
-  -h, --help            show help message and exit
-  -n NAMES, --names NAMES
+  -h, --help            show this help message and exit
+  -n names, --names names
                         filename storing a list of names for the items to be
                         clustered, in case distance matrix is used
-  -c CONVERT, --convert CONVERT
+  -c convert, --convert convert
                         convert similarity to distance with specified a cut-
                         off value
 
 Example:
-./clustit.py -m ../data/pentax/matrix-pentax-pce.dat --convert=60 hierarchical
+./clustit.py -m ../data/pentax/matrix-pentax-pce.dat --convert=200 hierarchical
+./clustit.py -e ../data/pentax/edgelist-pentax-pce.txt --convert=200 dbscan
+./clustit.py -e ../data/pentax/edgelist-pentax-pce.txt --convert=200 agglomerative
 ```
 
 Copyright and License
@@ -55,6 +59,7 @@ limitations under the License.
 """
 
 from __future__ import print_function
+import numpy
 import argparse
 import clustit.utils as utils
 from clustit.algorithms import *
@@ -66,7 +71,7 @@ def parse_arguments():
     mode.add_argument("-m", "--matrix", help="name of distance matrix file", metavar='matrix')
     parser.add_argument("-n", "--names", help="filename storing a list of names for the items to be clustered, in case distance matrix is used", metavar='names')
     parser.add_argument("-c", "--convert", help="convert similarity to distance with specified a cut-off value", metavar='convert')
-    parser.add_argument("clustering_algorithm", help="name of the clustering algorithm to use", choices=["hierarchical", "dbscan"], metavar='clustering_algorithm')
+    parser.add_argument("clustering_algorithm", help="name of the clustering algorithm to use", choices=["hierarchical", "dbscan", "spectral", "agglomerative"], metavar='clustering_algorithm')
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -85,9 +90,9 @@ if __name__ == "__main__":
     if args.convert:
         print("convert=" + args.convert)
         if args.edgelist:
-            edgelist['d'] = utils.convert_similarity_to_distance(edgelist['d'], float(args.convert))
+            edgelist['d'] = utils.similarity_to_distance(edgelist['d'], float(args.convert))
         if args.matrix:
-            matrix = utils.convert_similarity_to_distance(matrix, float(args.convert))
+            matrix = utils.similarity_to_distance(matrix, float(args.convert))
 
     if args.names:
         print("names filenname=" + args.names)
@@ -98,6 +103,10 @@ if __name__ == "__main__":
         clustering = hierarchical_clustering(edgelist=edgelist, distance_matrix=matrix)
     elif args.clustering_algorithm == 'dbscan':
         clustering = dbscan(edgelist=edgelist, distance_matrix=matrix)
+    elif args.clustering_algorithm == 'spectral':
+        clustering = spectral(edgelist=edgelist, distance_matrix=matrix)
+    elif args.clustering_algorithm == 'agglomerative':
+        clustering = agglomerative_clustering(edgelist=edgelist, distance_matrix=matrix)
 
-
+    numpy.set_printoptions(threshold=numpy.nan)
     print(clustering)

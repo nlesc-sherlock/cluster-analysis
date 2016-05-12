@@ -3,6 +3,8 @@
 import utils
 import scipy.cluster.hierarchy as sch
 from scipy.spatial.distance import squareform
+from scipy.cluster.hierarchy import _cpy_linkage_methods
+import numpy
 
 import sklearn.cluster
 
@@ -30,5 +32,37 @@ def dbscan(edgelist=None, distance_matrix=None, threshold=None):
                                 algorithm='brute', eps=threshold, min_samples=2)
     return labels
 
+def agglomerative_clustering(edgelist=None, distance_matrix=None, num_clusters=8, method='complete', metric='precomputed'):
+    """ computes an agglomerative clustering as one of the hierarchical clustering methods """
+    if edgelist is not None:
+        distance_matrix, names = utils.edgelist_to_distance_matrix(edgelist)
+
+    #all_methods =  _cpy_linkage_methods
+    #all_metrics = ['precomputed', 'cosine', 'euclidean', 'cityblock', 'manhattan']
+
+    all_methods = ['average']
+    all_metrics = ['precomputed']
+
+    for method in all_methods:
+        for metric in all_metrics:
+             if method == 'ward' and metric != 'euclidean': continue
+             model = sklearn.cluster.AgglomerativeClustering(linkage=method, affinity=metric,
+                                                         n_clusters=num_clusters, connectivity=distance_matrix, compute_full_tree='auto')
+             model = model.fit(distance_matrix)
+             labels = model.labels_
+
+        print method, metric
+    return labels
 
 
+def spectral(edgelist=None, distance_matrix=None):
+    """ cluster using spectral clustering """
+
+    if edgelist is not None:
+        distance_matrix, names = utils.edgelist_to_distance_matrix(edgelist)
+
+
+    sc = sklearn.cluster.SpectralClustering(n_clusters=10, affinity='precomputed')
+    labels = sc.fit_predict(distance_matrix)
+
+    return labels
