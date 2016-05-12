@@ -38,6 +38,7 @@ optional arguments:
 Example:
 ./clustit.py -m ../data/pentax/matrix-pentax-pce.dat --convert=200 hierarchical
 ./clustit.py -e ../data/pentax/edgelist-pentax-pce.txt --convert=200 dbscan
+./clustit.py -e ../data/pentax/edgelist-pentax-pce.txt --convert=200 agglomarative
 ```
 
 Copyright and License
@@ -70,7 +71,7 @@ def parse_arguments():
     mode.add_argument("-m", "--matrix", help="name of distance matrix file", metavar='matrix')
     parser.add_argument("-n", "--names", help="filename storing a list of names for the items to be clustered, in case distance matrix is used", metavar='names')
     parser.add_argument("-c", "--convert", help="convert similarity to distance with specified a cut-off value", metavar='convert')
-    parser.add_argument("clustering_algorithm", help="name of the clustering algorithm to use", choices=["hierarchical", "dbscan", "spectral"], metavar='clustering_algorithm')
+    parser.add_argument("clustering_algorithm", help="name of the clustering algorithm to use", choices=["hierarchical", "dbscan", "spectral", "agglomarative"], metavar='clustering_algorithm')
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -102,8 +103,13 @@ if __name__ == "__main__":
         clustering = hierarchical_clustering(edgelist=edgelist, distance_matrix=matrix)
     elif args.clustering_algorithm == 'dbscan':
         clustering = dbscan(edgelist=edgelist, distance_matrix=matrix)
+<<<<<<< HEAD
     elif args.clustering_algorithm == 'spectral':
         clustering = spectral(edgelist=edgelist, distance_matrix=matrix)
+=======
+    elif args.clustering_algorithm == 'agglomarative':
+        clustering = agglomarative_clustering(edgelist=edgelist, distance_matrix=matrix)
+>>>>>>> 417257de0469e412fb93cad5c9a0b990dde3bea8
 
     numpy.set_printoptions(threshold=numpy.nan)
     print(clustering)

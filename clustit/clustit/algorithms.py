@@ -3,6 +3,9 @@
 import utils
 import scipy.cluster.hierarchy as sch
 from scipy.spatial.distance import squareform
+from scipy.cluster.hierarchy import _cpy_linkage_methods
+import plot
+import numpy
 
 import sklearn.cluster
 
@@ -30,6 +33,18 @@ def dbscan(edgelist=None, distance_matrix=None, threshold=None):
                                 algorithm='brute', eps=threshold, min_samples=2)
     return labels
 
+def agglomarative_clustering(edgelist=None, distance_matrix=None, num_clusters=8, method='complete', metric='precomputed'):
+    """ computes an agglomerative clustering as one of the hierarchical clustering methods """
+    if edgelist is not None:
+        distance_matrix, names = utils.edgelist_to_distance_matrix(edgelist)
+
+    all_methods = ['complete']
+    for method in all_methods:
+         model = sklearn.cluster.AgglomerativeClustering(linkage=method, affinity=metric,
+                                                     n_clusters=num_clusters, connectivity=distance_matrix, compute_full_tree='auto')
+         model = model.fit(distance_matrix)
+         labels = model.labels_
+    return labels
 
 def spectral(edgelist=None, distance_matrix=None):
     """ cluster using spectral clustering """
