@@ -103,13 +103,10 @@ if __name__ == "__main__":
         clustering = hierarchical_clustering(edgelist=edgelist, distance_matrix=matrix)
     elif args.clustering_algorithm == 'dbscan':
         clustering = dbscan(edgelist=edgelist, distance_matrix=matrix)
-<<<<<<< HEAD
     elif args.clustering_algorithm == 'spectral':
         clustering = spectral(edgelist=edgelist, distance_matrix=matrix)
-=======
     elif args.clustering_algorithm == 'agglomarative':
         clustering = agglomarative_clustering(edgelist=edgelist, distance_matrix=matrix)
->>>>>>> 417257de0469e412fb93cad5c9a0b990dde3bea8
 
     numpy.set_printoptions(threshold=numpy.nan)
     print(clustering)

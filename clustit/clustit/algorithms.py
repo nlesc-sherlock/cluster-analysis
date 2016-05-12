@@ -4,7 +4,6 @@ import utils
 import scipy.cluster.hierarchy as sch
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import _cpy_linkage_methods
-import plot
 import numpy
 
 import sklearn.cluster
