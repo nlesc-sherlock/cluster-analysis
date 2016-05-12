@@ -1,6 +1,5 @@
 """ util functions for use in clustit """
 import numpy
-from scipy.spatial.distance import squareform
 
 class MatrixReadError(Exception):
     pass
@@ -31,8 +30,10 @@ def read_distance_matrix_file(filename):
         matrix = matrix.reshape(numrows, numrows)
     elif extension == "txt":
         matrix = numpy.genfromtxt(filename, delimiter=",")
-        if matrix.shape[0] != matrix.shape[1] or len(matrix.shape) != 2:
+        if len(matrix.shape) != 2:
             raise MatrixReadError("Expected square 2D comma-separated matrix, one row per line")
+        n = min(matrix.shape)
+        matrix = matrix[0:n,0:n]
     else:
         raise UnknownFileFormat("Expected .dat or .txt file")
     return matrix
@@ -50,7 +51,16 @@ def edgelist_to_distance_matrix(edgelist):
     n2 = set([n for n in edgelist['n2'] if n not in n1])
     #could insert sanity check here that n2 has length exactly 1
     names = list(n2) + n1
-    matrix = squareform(edgelist['d'])
+    n = len(names)
+    matrix = numpy.zeros((n,n), dtype=numpy.float)
+    for i,d in enumerate(edgelist['d']):
+        n1 = edgelist[i]['n1']
+        n2 = edgelist[i]['n2']
+        mi = names.index(n1)
+        mj = names.index(n2)
+        matrix[mi,mj] = d
+        matrix[mj,mi] = d
+    numpy.fill_diagonal(matrix, 0.0)
     return matrix, names
 
 def distance_matrix_to_edgelist(matrix, names=None):
