@@ -58,7 +58,6 @@ def test_edgelist_to_distance_matrix2():
     expected = [704.17228119005165, 0.0, 476.46750462930402, 244.28991913458535, 585.63345061046823]
     assert all([n == e for n,e in zip(matrix[1,:],expected)])
 
-
 def test_distance_matrix_to_edgelist():
     matrix = numpy.array([[0, 1, 2],[1,0,3],[2,3,0]])
     output = utils.distance_matrix_to_edgelist(matrix)
@@ -70,3 +69,9 @@ def test_distance_matrix_to_edgelist():
     assert all([n == e for n,e in zip(output['n2'],expected_n2)])
     assert all([n == e for n,e in zip(output['d'],expected_d)])
 
+def test_similarity_to_distance():
+    matrix = numpy.array([[0, 1, 2],[1,0,3],[2,3,0]], dtype=numpy.float)
+    output = utils.similarity_to_distance(matrix, 20.0)
+    expected = numpy.array([[0, 20.0, 10.0],[20.0,0,6.66666667],[10.0,6.666666667,0]])
+    assert output.shape == expected.shape
+    assert all(output.ravel() - expected.ravel() < 1e4)

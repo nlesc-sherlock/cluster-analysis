@@ -77,7 +77,7 @@ def distance_matrix_to_edgelist(matrix, names=None):
         ('n2', 'S'+str(max_len)), ('d', 'f64')])
     return edgelist
 
-def convert_similarity_to_distance(similarities, cutoff):
+def similarity_to_distance(similarities, cutoff):
     """ convert the edgelist and/or matrix from similarity to distance using cutoff """
     distances = similarities
     distances[distances > cutoff] = cutoff
