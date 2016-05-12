@@ -63,21 +63,14 @@ def distance_matrix_to_edgelist(matrix, names=None):
         ('n2', 'S'+str(max_len)), ('d', 'f64')])
     return edgelist
 
-def convert_similarity_to_distance(edgelist, matrix, cutoff):
+def convert_similarity_to_distance(similarities, cutoff):
     """ convert the edgelist and/or matrix from similarity to distance using cutoff """
-    if edgelist is not None:
-        distances = edgelist['d']
-        distances[distances > cutoff] = cutoff
-        distances[distances < 0.0] = 0.0
-        distances += 0.0000001
-        distances = cutoff / distances
-        distances[distances > cutoff] = cutoff
-    if matrix is not None:
-        matrix[matrix > cutoff] = cutoff
-        matrix[matrix < 0.0] = 0.0
-        matrix += 0.0000001
-        matrix = cutoff / matrix
-        matrix[matrix > cutoff] = cutoff
-        numpy.fill_diagonal(matrix, 0.0)
-
-    return edgelist, matrix
+    distances = similarities
+    distances[distances > cutoff] = cutoff
+    distances[distances < 0.0] = 0.0
+    distances += 0.0000001
+    distances = cutoff / distances
+    distances[distances > cutoff] = cutoff
+    if len(distances.shape) == 2:
+        numpy.fill_diagonal(distances, 0.0)
+    return distances

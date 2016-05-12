@@ -84,7 +84,10 @@ if __name__ == "__main__":
 
     if args.convert:
         print("convert=" + args.convert)
-        edgelist, matrix = utils.convert_similarity_to_distance(edgelist, matrix, float(args.convert))
+        if args.edgelist:
+            edgelist['d'] = utils.convert_similarity_to_distance(edgelist['d'], float(args.convert))
+        if args.matrix:
+            matrix = utils.convert_similarity_to_distance(matrix, float(args.convert))
 
     if args.names:
         print("names filenname=" + args.names)
