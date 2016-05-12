@@ -13,28 +13,31 @@ Dependencies
 Example usage
 -------------
 ```
-./clustit.py (-e EDGELIST | -m MATRIX) <clustering_algorithm> [optional arguments]
+usage: clustit.py [-h] (-e edgelist | -m matrix) [-n names] [-c convert]
+                  clustering_algorithm
 
 specify either:
-  -e EDGELIST, --edgelist EDGELIST
+  -e edgelist, --edgelist edgelist
                         name of the edgelist file
-  -m MATRIX, --matrix MATRIX
+  -m matrix, --matrix matrix
                         name of distance matrix file
 
-for clustering_algorithm, choose from:
-    hierarchical or dbscan
+positional arguments:
+  clustering_algorithm  name of the clustering algorithm to use
+                        choose from: hierarchical, dbscan
 
 optional arguments:
-  -h, --help            show help message and exit
-  -n NAMES, --names NAMES
+  -h, --help            show this help message and exit
+  -n names, --names names
                         filename storing a list of names for the items to be
                         clustered, in case distance matrix is used
-  -c CONVERT, --convert CONVERT
+  -c convert, --convert convert
                         convert similarity to distance with specified a cut-
                         off value
 
 Example:
-./clustit.py -m ../data/pentax/matrix-pentax-pce.dat --convert=60 hierarchical
+./clustit.py -m ../data/pentax/matrix-pentax-pce.dat --convert=200 hierarchical
+./clustit.py -e ../data/pentax/edgelist-pentax-pce.txt --convert=200 dbscan
 ```
 
 Copyright and License
