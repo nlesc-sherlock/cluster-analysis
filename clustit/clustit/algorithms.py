@@ -3,7 +3,7 @@
 from __future__ import print_function
 import sys
 
-import utils
+import clustit.utils as utils
 import scipy.cluster.hierarchy as sch
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import _cpy_linkage_methods
@@ -42,45 +42,45 @@ def agglomerative_clustering(edgelist=None, distance_matrix=None, num_clusters=4
     if edgelist is not None:
         distance_matrix, names = utils.edgelist_to_distance_matrix(edgelist)
 
-    num_clusters=int(raw_input("Enter the number of clusters: "))
+    num_clusters=int(input("Enter the number of clusters: "))
     assert isinstance(num_clusters, int)
 
 
-    method_options = _cpy_linkage_methods
-    method_options.remove('single')
+    method_options = ['ward', 'complete', 'average']
+    print('The list of available methods:', method_options, file=sys.stdout)
+    in_method = input('Input the method name:')
+    assert isinstance(in_method, str)    # native str on Py2 and Py3
+    method = in_method
 
-    metric_options = ['precomputed', 'cosine', 'euclidean', 'cityblock']
-    print('The list of available metrics:', metric_options , file=sys.stdout)
-    metric_options = set([])
-    in_metric = input('Input the metric name:')
-    assert isinstance(in_metric, str)    # native str on Py2 and Py3
-    metric_options.add(in_metric)
+    if method == 'ward':
+        metric = 'euclidean'
+
+
+    else:
+
+        metric_options = ['precomputed', 'cosine', 'euclidean', 'cityblock']
+        print('The list of available metrics:', metric_options , file=sys.stdout)
+
+        in_metric = input('Input the metric name:')
+        assert isinstance(in_metric, str)    # native str on Py2 and Py3
+        metric = in_metric
 
     #tree_cutoff_options = [True, False, 'auto']
     tree_cutoff_options = []
 
 
 
-    print('The list of available methods:', method_options, file=sys.stdout)
-    method_options = set([])
-    in_method = input('Input the method name:')
-    assert isinstance(in_method, str)    # native str on Py2 and Py3
-    method_options.add(in_method)
-
-
-
-
-    for method in method_options:
-        for metric in metric_options:
+    #for method in method_options:
+    #    for metric in metric_options:
             #for tree_cutoff in tree_cutoff_options:
-            if method == 'ward' and metric != 'euclidean': continue
-            model = sklearn.cluster.AgglomerativeClustering(linkage=method, affinity=metric,
-                                                             n_clusters=num_clusters, connectivity=distance_matrix, compute_full_tree='auto')
-            model = model.fit(distance_matrix)
-            labels = model.labels_
 
-        print(method, metric)
-        return labels
+    model = sklearn.cluster.AgglomerativeClustering(linkage=method, affinity=metric,
+                                                             n_clusters=num_clusters, connectivity=distance_matrix, compute_full_tree='auto')
+    model = model.fit(distance_matrix)
+    labels = model.labels_
+
+    print(method, metric)
+    return labels
 
 
 def spectral(edgelist=None, distance_matrix=None):
