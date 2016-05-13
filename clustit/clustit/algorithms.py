@@ -5,9 +5,9 @@ import sys
 
 import clustit.utils as utils
 import scipy.cluster.hierarchy as sch
-from scipy.spatial.distance import squareform
-from scipy.cluster.hierarchy import _cpy_linkage_methods
-import numpy
+from sklearn.cluster.hierarchical import _TREE_BUILDERS
+#from clustit.plot import plot_dendrogram
+
 
 import sklearn.cluster
 from builtins import input
@@ -46,11 +46,11 @@ def agglomerative_clustering(edgelist=None, distance_matrix=None, num_clusters=4
     assert isinstance(num_clusters, int)
 
 
-    method_options = ['ward', 'complete', 'average']
+    method_options = list(_TREE_BUILDERS.keys())
     print('The list of available methods:', method_options, file=sys.stdout)
     in_method = input('Input the method name:')
     assert isinstance(in_method, str)    # native str on Py2 and Py3
-    method = in_method
+    method = in_method.strip()
 
     if method == 'ward':
         metric = 'euclidean'
@@ -63,7 +63,7 @@ def agglomerative_clustering(edgelist=None, distance_matrix=None, num_clusters=4
 
         in_metric = input('Input the metric name:')
         assert isinstance(in_metric, str)    # native str on Py2 and Py3
-        metric = in_metric
+        metric = in_metric.strip()
 
     #tree_cutoff_options = [True, False, 'auto']
     tree_cutoff_options = []
@@ -80,6 +80,9 @@ def agglomerative_clustering(edgelist=None, distance_matrix=None, num_clusters=4
     labels = model.labels_
 
     print(method, metric)
+    #plot_dendrogram(model, labels=labels)
+
+
     return labels
 
 
