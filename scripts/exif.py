@@ -10,7 +10,7 @@ data_dir = '../data/set_2/'
 def get_exif(filename):
     from fractions import Fraction
     out, err = subprocess.Popen(['identify', '-format', '%[exif:FNumber],%[exif:ExposureTime],%[exif:ISOSpeedRatings]', filename], stdout=subprocess.PIPE).communicate()
-    print out
+    print(out)
     return [1.0 * Fraction(x) for x in out.strip().split(',')]
 
 
@@ -85,7 +85,7 @@ def pce_analysis_fig(matrix_pce, matrix_fnum, matrix_exp, matrix_iso, matrix_fcl
     f.savefig("compare_pce.png", dpi=300)
 
     pyplot.show()
-    raw_input()
+    input()
 
 
 
@@ -109,7 +109,7 @@ if __name__ == "__main__":
     matrix_pce = matrix_pce.reshape(numfiles, numfiles)
 
     matrix_file = data_dir + 'matrix_304_ncc.txt'
-    matrix_ncc = numpy.loadtxt(matrix_file, delimiter=',', usecols=range(304))
+    matrix_ncc = numpy.loadtxt(matrix_file, delimiter=',', usecols=list(range(304)))
     # matrix_file = data_dir + 'matrix_304_ncc.dat'
     # matrix_ncc = numpy.fromfile(matrix_file, dtype='>d')
     matrix_ncc = matrix_ncc.reshape(numfiles, numfiles)
@@ -178,5 +178,5 @@ if __name__ == "__main__":
     f.savefig("pce_ncc_correlation.png", dpi=300)
 
     pyplot.show()
-    raw_input()
+    input()
 

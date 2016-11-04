@@ -1,0 +1,3 @@
+node002 node001 5.7
+node003 node001 4.3
+node003 node002 1.2

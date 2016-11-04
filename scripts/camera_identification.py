@@ -50,7 +50,7 @@ def plot_distance_matrices(matrix1, matrix2, matrix3, matrix4):
     f.set_size_inches(10, 10, forward=True)
     f.tight_layout()
     pyplot.show()
-    raw_input()
+    input()
 
 #function to rename the labels from the found clustering to the labels in the true clustering
 #not very useful but may come in handy at some point
@@ -113,7 +113,7 @@ def convert_similarity_to_distance(matrix):
     matrix = matrix.reshape(numfiles, numfiles)
 
     #zero diagonal
-    index = range(numfiles)
+    index = list(range(numfiles))
     matrix[index, index] = 0.0
 
     return matrix
@@ -130,10 +130,10 @@ def combine_pce_and_ncc_distances(matrix_pce, matrix_ncc):
 
 def print_metrics(true_clustering, cluster):
     #try some metrics from sklearn
-    print "\n"
-    print "adjusted rand score [-1.0 (bad) to 1.0 (good)]\n", metrics.adjusted_rand_score(true_clustering, cluster)
-    print "mutual information based score [0.0 (bad) to 1.0 (good)]\n", metrics.adjusted_mutual_info_score(true_clustering, cluster)
-    print "homogeneity, completeness, v measure [0.0 (bad) to 1.0 (good)]\n", metrics.homogeneity_completeness_v_measure(true_clustering, cluster)
+    print("\n")
+    print("adjusted rand score [-1.0 (bad) to 1.0 (good)]\n", metrics.adjusted_rand_score(true_clustering, cluster))
+    print("mutual information based score [0.0 (bad) to 1.0 (good)]\n", metrics.adjusted_mutual_info_score(true_clustering, cluster))
+    print("homogeneity, completeness, v measure [0.0 (bad) to 1.0 (good)]\n", metrics.homogeneity_completeness_v_measure(true_clustering, cluster))
 
 
 def get_ground_truth():
@@ -155,18 +155,18 @@ def get_ground_truth():
 
 
 
-if __name__ == "__main__":
+#if __name__ == "__main__":
 
-    import sys
-    if len(sys.argv) != 2:
-        print "Usage: ./camera_identification <name-of-dataset>"
-        exit()
-    import os
-    if not os.path.isdir(directory + "/" + sys.argv[1]):
-        print "incorrect dataset name, cannot find " + directory + "/" + sys.argv[1]
-        exit()
+#    import sys
+#    if len(sys.argv) != 2:
+#        print("Usage: ./camera_identification <name-of-dataset>")
+#        exit()
+#    import os
+#    if not os.path.isdir(directory + "/" + sys.argv[1]):
+#        print("incorrect dataset name, cannot find " + directory + "/" + sys.argv[1])
+#        exit()
 
-    dataset = sys.argv[1]
+    dataset ="pentax" #sys.argv[1]
     directory = directory + "/" + dataset
 
     #load the distance matrixes from files
@@ -205,14 +205,14 @@ if __name__ == "__main__":
     #compute flat clustering in the exact same way as sch.dendogram colors the clusters
     cluster = numpy.array(sch.fcluster(linkage, threshold, criterion='distance'), dtype=numpy.int)
     numpy.set_printoptions(threshold=numpy.nan) # make numpy print the full array
-    print "flat clustering:\n", cluster
+    print("flat clustering:\n", cluster)
 
     #get the actual clustering
     filelist = numpy.loadtxt(directory + "/filelist.txt", dtype=numpy.string_)
     true_clustering = ["_".join(s.split("_")[:-1]) for s in filelist]
     true_clusters = sorted(set(true_clustering))
     true_labels = numpy.array([true_clusters.index(id) for id in true_clustering], dtype=numpy.int)
-    print "true clustering:\n", true_labels
+    print("true clustering:\n", true_labels)
 
 
     print_metrics(true_labels, cluster)
