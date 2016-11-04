@@ -23,7 +23,22 @@
  */
 
 // Should be a power of two!!
-#define LARGETB 1024
+#ifndef block_size_x
+#define block_size_x 1024
+#endif
+
+#ifndef vector
+#define vector 1
+#endif
+
+#if (vector==1)
+#define floatvector float
+#elif (vector == 2)
+#define floatvector float2
+#elif (vector == 4)
+#define floatvector float4
+#endif
+
 //function interfaces to prevent C++ garbling the kernel names
 extern "C" {
     __global__ void sumSquared(double *output, float *x, int n);
@@ -41,11 +56,11 @@ extern "C" {
  * This function is to be called with only a single thread block
  */
 __global__ void sumSquared(double *output, float *x, int n) {
-    int _x = blockIdx.x * LARGETB + threadIdx.x;
+    int _x = blockIdx.x * block_size_x + threadIdx.x;
     int ti = threadIdx.x;
-    int step_size = gridDim.x * LARGETB;
+    int step_size = gridDim.x * block_size_x;
 
-    __shared__ double shmem[LARGETB];
+    __shared__ double shmem[block_size_x];
 
     if (ti < n) {
 
@@ -60,7 +75,7 @@ __global__ void sumSquared(double *output, float *x, int n) {
         __syncthreads();
 
         //reduce local sums
-        for (unsigned int s=LARGETB/2; s>0; s>>=1) {
+        for (unsigned int s=block_size_x/2; s>0; s>>=1) {
             if (ti < s) {
             shmem[ti] += shmem[ti + s];
             }
@@ -75,26 +90,35 @@ __global__ void sumSquared(double *output, float *x, int n) {
 }
  
 __global__ void computeNCC(double *output, float *x, float *y,  int n) {
-    int _x = blockIdx.x * LARGETB + threadIdx.x;
+    int _x = blockIdx.x * block_size_x + threadIdx.x;
     int ti = threadIdx.x;
-    int step_size = gridDim.x * LARGETB;
+    int step_size = gridDim.x * block_size_x;
 
-    __shared__ double shmem[LARGETB];
+    __shared__ double shmem[block_size_x];
 
     if (ti < n) {
 
         //compute thread-local sums
         double sumxy = 0.0;        
-        for (int i=_x; i < n; i+=step_size) {
-            sumxy += x[i] * y[i];
+        for (int i=_x; i < n/vector; i+=step_size) {
+            // sumxy += x[i] * y[i];
+      
+            floatvector v = x[i];
+            floatvector w = y[i];
+            #if vector == 1
+            sumxy += v * w;
+            #elif vector == 2
+            sumxy += v.x * w.x + v.y * w.y;
+            #elif vector == 4
+            sumxy += v.x * w.x + v.y * w.y + v.z * w.z + v.w * w.w;
+            #endif
         }
-
         //store local sums in shared memory
         shmem[ti] = sumxy;
         __syncthreads();
         
         //reduce local sums
-        for (unsigned int s=LARGETB/2; s>0; s>>=1) {
+        for (unsigned int s=block_size_x/2; s>0; s>>=1) {
             if (ti < s) {
                 shmem[ti] += shmem[ti + s];
             }
