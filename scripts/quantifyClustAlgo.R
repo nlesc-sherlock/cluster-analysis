@@ -1,5 +1,9 @@
 library(ClusterR)
 library(reshape2)
+
+### Reference material 
+https://cran.r-project.org/web/packages/ClusterR/vignettes/the_clusterR_package.html
+
 setwd("/home/anandgavai/Sherlock5/cluster-analysis/data/pentax")
 
 mat<-read.csv("matrix-pentax-pce.txt",header = FALSE,sep=",")
