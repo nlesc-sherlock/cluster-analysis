@@ -35,7 +35,7 @@ optional arguments:
                         convert similarity to distance with specified a cut-
                         off value
 
-Example:
+Examples:
 ./clustit.py -m ../data/pentax/matrix-pentax-pce.dat --convert=200 hierarchical
 ./clustit.py -e ../data/pentax/edgelist-pentax-pce.txt --convert=200 dbscan
 ./clustit.py -e ../data/pentax/edgelist-pentax-pce.txt --convert=200 agglomerative

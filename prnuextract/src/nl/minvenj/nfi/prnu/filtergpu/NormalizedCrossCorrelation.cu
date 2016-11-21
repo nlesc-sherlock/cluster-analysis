@@ -31,18 +31,33 @@
 #define vector 1
 #endif
 
+typedef struct __align__(16) { float s0; float s1; float s2; float s3;} floatvier;
+
+typedef struct __align__(32) { float s0; float s1; float s2; float s3;
+                               float s4; float s5; float s6; float s7;} floatacht;
+
+typedef struct __align__(64) { float s0; float s1; float s2; float s3;
+                               float s4; float s5; float s6; float s7; 
+                               float s8; float s9; float s10; float s11; 
+                               float s12; float s13; float s14; float s15;} floatzestien;
+
 #if (vector==1)
-#define floatvector float
+#define floatvector float 
 #elif (vector == 2)
 #define floatvector float2
 #elif (vector == 4)
-#define floatvector float4
+#define floatvector floatvier
+#elif (vector == 8) 
+#define floatvector floatacht
+#elif (vector == 16)
+#define floatvector floatzestien
 #endif
+
 
 //function interfaces to prevent C++ garbling the kernel names
 extern "C" {
     __global__ void sumSquared(double *output, float *x, int n);
-    __global__ void computeNCC(double *output, float *x, float *y,  int n);
+    __global__ void computeNCC(double *output, floatvector *x, floatvector *y,  int n);
 }
 
 # 
@@ -89,7 +104,7 @@ __global__ void sumSquared(double *output, float *x, int n) {
     }
 }
  
-__global__ void computeNCC(double *output, float *x, float *y,  int n) {
+__global__ void computeNCC(double *output, floatvector *x, floatvector *y,  int n) {
     int _x = blockIdx.x * block_size_x + threadIdx.x;
     int ti = threadIdx.x;
     int step_size = gridDim.x * block_size_x;
@@ -110,7 +125,12 @@ __global__ void computeNCC(double *output, float *x, float *y,  int n) {
             #elif vector == 2
             sumxy += v.x * w.x + v.y * w.y;
             #elif vector == 4
-            sumxy += v.x * w.x + v.y * w.y + v.z * w.z + v.w * w.w;
+            sumxy += v.s0 * w.s0 + v.s1 * w.s1 + v.s2 * w.s2 + v.s3 * w.s3;
+            #elif vector == 8
+            sumxy += v.s0 * w.s0 + v.s1 * w.s1 + v.s2 * w.s2 + v.s3 * w.s3 + v.s4 * w.s4 + v.s5 * w.s5 + v.s6 * w.s6 + v.s7 * w.s7;
+            #elif vector == 16
+            sumxy += v.s0 * w.s0 + v.s1 * w.s1 + v.s2 * w.s2 + v.s3 * w.s3 + v.s4 * w.s4 + v.s5 * w.s5 + v.s6 * w.s6 + v.s7 * w.s7
+                   + v.s8 * w.s8 + v.s9 * w.s9 + v.s10 * w.s10 + v.s11 * w.s11 + v.s12 * w.s12 + v.s13 * w.s13 + v.s14 * w.s14 + v.s15 * w.s15;
             #endif
         }
         //store local sums in shared memory
