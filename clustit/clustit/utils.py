@@ -1,5 +1,6 @@
 """ util functions for use in clustit """
 import numpy
+import os
 
 class MatrixReadError(Exception):
     pass
@@ -88,3 +89,11 @@ def similarity_to_distance(similarities, cutoff):
     if len(distances.shape) == 2:
         numpy.fill_diagonal(distances, 0.0)
     return distances
+
+def delete_temp_file(filename):
+    #delete a temporary filename but don't complain if it's gone already
+    try:
+        os.remove(filename)
+    except OSError as e:
+        if e.errno != errno.ENOENT:
+            raise e
