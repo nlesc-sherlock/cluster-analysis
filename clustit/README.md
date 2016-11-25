@@ -9,6 +9,8 @@ Dependencies
  * Python 2.7 or Python 3.5
  * Scipy
  * scikit-learn
+ * Pandas
+ * LargeVis (https://github.com/lferry007/LargeVis)
 
 Example usage
 -------------
