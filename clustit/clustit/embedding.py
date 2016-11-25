@@ -21,24 +21,13 @@ def largevis(edgelist_filename, outdim=2, alpha=-1):
         :returns: The resulting embedding of the input data
         :rtype: pandas.DataFrame
     """
-
-    #send the input data to LargeVis
     LargeVis.loadgraph(edgelist_filename)
-
     _run_largevis(outdim, alpha)
 
+    #get output data from LargeVis
     temp_file = "/tmp/largevis_tempfile.txt"
-
     try:
         LargeVis.save(temp_file)
-
-        #read in temp_file
-        with open(temp_file, 'r') as f:
-            print(f.read())
-
-
-
-
         data_frame = pandas.read_csv(temp_file, sep=" ", index_col=0)
     finally:
         delete_temp_file(temp_file)
