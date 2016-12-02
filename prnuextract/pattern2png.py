@@ -22,7 +22,8 @@ if __name__ == "__main__":
         gpurun ./rungpu.sh -single input_filename output_filename
         gpurun ./rungpu.sh -single /var/scratch/bwn200/Dresden/2560x1920/Praktica_DCZ5.9_1_34178.JPG ./Praktica_DCZ5.9_1_34178.dat
 
-    Be sure to have the application compiled:
+    Be sure to have the application compiled, and the following modules/aliases:
+        module load gcc/4.9.3
         module load cuda70
         alias gpurun="srun -N 1 -C TitanX --gres=gpu:1"
 
