@@ -53,7 +53,9 @@ public final class CudaModule {
             arguments.add(cubinFile.getAbsolutePath());
 
             final String output = runExternalCommand(arguments.toArray(new String[0]));
-            System.out.println(output);
+            if (output.length() > 2) {
+                System.out.println(output);
+            }
 
             //final String disassembly = runExternalCommand("cuobjdump", "-sass", cubinFile.getAbsolutePath());
             //System.out.println(disassembly);

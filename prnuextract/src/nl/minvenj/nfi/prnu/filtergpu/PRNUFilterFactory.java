@@ -37,8 +37,8 @@ import org.apache.commons.io.IOUtils;
 public class PRNUFilterFactory {
 
 	private static final String[] filenames = { "GrayscaleFilter.cu", "FastNoiseFilter.cu", "ZeroMeanTotalFilter.cu", "WienerFilter.cu"};
-	private static String architecture = "compute_20";
-	private static String capability = "sm_20";
+	private static String architecture = "compute_52";
+	private static String capability = "sm_52";
 	
 	private CudaContext _context;
 	private CudaModule[] modules;
@@ -98,10 +98,10 @@ public class PRNUFilterFactory {
         CudaModule module;
 		if (_fmad) {
 			module = _context.loadModule(source, "-gencode=arch=" + architecture + ",code=" +
-					capability, "-Xptxas=-v");
+					capability);
 		} else {
 			module = _context.loadModule(source, "-gencode=arch=" + architecture + ",code=" +
-					capability, "-Xptxas=-v", "--fmad=false");
+					capability, "--fmad=false");
 		}
         return module;
     }

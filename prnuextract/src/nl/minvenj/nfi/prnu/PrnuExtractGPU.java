@@ -299,6 +299,24 @@ public class PrnuExtractGPU {
     }
 
 
+    public void run_single(String input, String output) {
+        this.filterFactory = new PRNUFilterFactory();
+
+        BufferedImage image = null;
+        try {
+            image = Util.readImage(new File(input));
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
+        this.filter = filterFactory.createPRNUFilter(image.getHeight(), image.getWidth());        
+        float[] pattern = filter.apply(image);
+
+        write_float_array_to_file(pattern, output, image.getHeight()*image.getWidth());
+    }
+
+
+
     /**
      * This is the main non-static method of this application.
      * It reads the names of all the image files in the target directory
@@ -419,6 +437,9 @@ public class PrnuExtractGPU {
         System.out.println("    testcase is the name you give to this run");
         System.out.println("    folderpath is the path to the folder containing images");
         System.out.println("    mode is any of NCC, PCE, or PCE0");
+        System.out.println(" ");
+        System.out.println("    Alternatively, to output the PRNU pattern of a single file:");
+        System.out.println("      <program-name> -single [input_file] [output_file]");
         System.exit(0);
     }
 
@@ -426,9 +447,19 @@ public class PrnuExtractGPU {
      * The main routine, it checks the commandline arguments and then calls the non-static run()
      */
     public static void main(final String[] args) throws IOException {
+
         if (args.length != 3) {
             printUsage();
         }
+        if (args[0].equals("-single")) {
+            File f = new File(args[1]);
+            if (!f.exists() || f.isDirectory()) {
+                System.out.println("input file does not exist or is a directory");
+            }
+            new PrnuExtractGPU().run_single(args[1], args[2]);
+            System.exit(0);
+        }
+
         if (containsIllegals(args[0])) {
             System.out.println("testcase will be used for filenames, please do not use special characters");
             printUsage();
