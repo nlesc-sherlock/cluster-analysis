@@ -65,7 +65,7 @@ public class PrnuExtractGPU {
     //the methods for dumping and reading are currently not used since it is much faster
     //to read the JPEG image and recompute the PRNU pattern on the GPU
     //the methods are however occasionally used for debugging purposes
-    static final String TEMP_DIR = "";
+    String TEMP_DIR = "";
 
     /**
      * This methods extracts the PRNU pattern of all the images in the dataset
@@ -316,6 +316,49 @@ public class PrnuExtractGPU {
     }
 
 
+    public void run_all(String input, String output) {
+        this.filterFactory = new PRNUFilterFactory();
+        this.TEMP_DIR = output;
+
+        File input_folder = new File(input);
+        int numfiles = input_folder.listFiles().length;
+        File input_files[] = new File[numfiles];
+
+        //obtain the list of files in this folder and sort them on filename
+        File[] files = input_folder.listFiles();
+        Arrays.sort(files, new Comparator<File>() {
+            public int compare(File f1, File f2) {
+                return f1.getName().compareTo(f2.getName());
+            }
+        });
+        input_files = files;
+        numfiles = files.length;
+
+        //open one image to get image dimensions
+        BufferedImage image = null;
+        try {
+            image = Util.readImage(input_files[0]);
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
+        this.filter = filterFactory.createPRNUFilter(image.getHeight(), image.getWidth());        
+        float[] pattern;
+
+        for (File input_file: input_files) {
+            try {
+                image = Util.readImage(input_file);
+            } catch (Exception e) {
+                e.printStackTrace();
+                System.exit(1);
+            }
+            pattern = filter.apply(image);
+            write_float_array_to_file(pattern, input_file.getName(), image.getHeight()*image.getWidth());
+        }
+
+    }
+
+
 
     /**
      * This is the main non-static method of this application.
@@ -334,10 +377,10 @@ public class PrnuExtractGPU {
         this.EDGELIST_FILENAME = "edgelist-" + testcase + ".txt";
         this.MATRIX_BIN_FILENAME = "matrix-" + testcase + ".dat";
         this.MATRIX_TXT_FILENAME = "matrix-" + testcase + ".txt";
-        this.TESTDATA_FOLDER = new File(folderpath);
 
         //instantiate the PRNUFilterFactory to compile CUDA source files
         this.filterFactory = new PRNUFilterFactory();
+        this.TESTDATA_FOLDER = new File(folderpath);
         int numfiles = TESTDATA_FOLDER.listFiles().length;
         File INPUT_FILES[] = new File[numfiles];
 
@@ -425,7 +468,7 @@ public class PrnuExtractGPU {
      * @param toExamine     the string to examine
      */
     private static boolean containsIllegals(String toExamine) {
-        String[] arr = toExamine.split("[~#@*+%{}<>\\[\\]|\"\\_^]", 2);
+        String[] arr = toExamine.split("[~#@*+%{}<>\\[\\]|\"^]", 2);
         return arr.length > 1;
     }
 
@@ -440,6 +483,8 @@ public class PrnuExtractGPU {
         System.out.println(" ");
         System.out.println("    Alternatively, to output the PRNU pattern of a single file:");
         System.out.println("      <program-name> -single [input_file] [output_file]");
+        System.out.println("    or to output the PRNU pattern of a all files in a directory:");
+        System.out.println("      <program-name> -all [input_dir] [output_dir]");
         System.exit(0);
     }
 
@@ -457,6 +502,17 @@ public class PrnuExtractGPU {
                 System.out.println("input file does not exist or is a directory");
             }
             new PrnuExtractGPU().run_single(args[1], args[2]);
+            System.exit(0);
+        } else if (args[0].equals("-all")) {
+            File f = new File(args[1]);
+            if (!f.exists() || !f.isDirectory()) {
+                System.out.println("input directory does not exist or is not a directory");
+            }
+            f = new File(args[2]);
+            if (!f.exists() || !f.isDirectory()) {
+                System.out.println("output directory does not exist or is not a directory");
+            }
+            new PrnuExtractGPU().run_all(args[1], args[2]);
             System.exit(0);
         }
 
@@ -597,7 +653,7 @@ public class PrnuExtractGPU {
      * @returns         a float array containing the PRNU pattern
      */
     float[] read_float_array_from_file(String filename, int size) {
-        String file = TEMP_DIR + filename.substring(0, filename.lastIndexOf('.')) + ".dat";
+        String file = TEMP_DIR + '/' + filename.substring(0, filename.lastIndexOf('.')) + ".dat";
 
         try{
             DataInputStream in = new DataInputStream(new BufferedInputStream(new FileInputStream(file)));
