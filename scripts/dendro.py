@@ -18,7 +18,7 @@ def compute_dendrogram(linkage):
 
 def plot_dendrogram_and_matrix(linkage, matrix, color_threshold=None):
     # Compute and plot dendrogram.
-    fig = pylab.figure(figsize=(20,20))
+    fig = pyplot.gcf()
     axdendro = fig.add_axes([0.09,0.1,0.2,0.8])
     dendrogram = sch.dendrogram(linkage, color_threshold=color_threshold, orientation='right')
     axdendro.set_xticks([])
@@ -39,8 +39,7 @@ def plot_dendrogram_and_matrix(linkage, matrix, color_threshold=None):
     pylab.colorbar(im, cax=axcolor)
 
     # Display and save figure.
-    fig.show()
-    raw_input()
+    pyplot.show()
 
     return dendrogram
 
