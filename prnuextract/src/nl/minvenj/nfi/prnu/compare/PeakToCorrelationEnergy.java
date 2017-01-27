@@ -25,6 +25,8 @@ import jcuda.runtime.cudaDeviceProp;
 import jcuda.runtime.cudaError;
 import jcuda.driver.*;
 import jcuda.jcufft.*;
+import jcuda.Pointer;
+import jcuda.Sizeof;
 
 import edu.emory.mathcs.jtransforms.fft.FloatFFT_2D;
 
@@ -64,7 +66,6 @@ public class PeakToCorrelationEnergy implements PatternComparator {
     protected CudaMemFloat _d_y;
     protected CudaMemFloat _d_c;
     protected CudaMemInt _d_peakIndex;
-    protected CudaMemFloat _d_peakValue;
     protected CudaMemFloat _d_peakValues;
     protected CudaMemDouble _d_energy;
 
@@ -115,7 +116,6 @@ public class PeakToCorrelationEnergy implements PatternComparator {
         int n = h*w;
         this.h = h;
         this.w = w;
-        this.useRealPeak = usePeak;
 
         _rows = h;
         _columns = w;
@@ -127,6 +127,13 @@ public class PeakToCorrelationEnergy implements PatternComparator {
         _c = new float[_rows * _columns * 2];
         _x = new float[_rows * _columns * 2];
         _y = new float[_rows * _columns * 2];
+
+
+        this.useRealPeak = usePeak;
+        if (!usePeak) {
+            System.out.println("Error: not using real peak no longer supported");
+            System.exit(1);
+        }
 
         //initialize CUFFT
         JCufft.initialize();
@@ -151,13 +158,12 @@ public class PeakToCorrelationEnergy implements PatternComparator {
                 threads_x, threads_y, 1);
 
         //dimensions for reducing kernels        
-        int threads = 1024;
-        int reducing_thread_blocks = 15; //optimally this equals the number of SMs in the GPU
+        int threads = 256;
+        int reducing_thread_blocks = 1024;
 
-        //nicer way of accesssing the number of SMs through the Cuba API
-        int num_sm =_context.getDevice().getComputeModules();
-        System.out.println("detected " + num_sm + " SMs on GPU");
-        reducing_thread_blocks = num_sm;
+        //int num_sm =_context.getDevice().getComputeModules();
+        //System.out.println("detected " + num_sm + " SMs on GPU");
+        //reducing_thread_blocks = num_sm;
 
         _findPeak = module.getFunction("findPeak");
         _findPeak.setDim(    reducing_thread_blocks, 1, 1,
@@ -188,7 +194,6 @@ public class PeakToCorrelationEnergy implements PatternComparator {
         _d_y = _context.allocFloats(h*w*2);
         _d_c = _context.allocFloats(h*w*2);
         _d_peakIndex = _context.allocInts(reducing_thread_blocks);
-        _d_peakValue = _context.allocFloats(1);
         _d_peakValues = _context.allocFloats(reducing_thread_blocks);
         _d_energy = _context.allocDoubles(reducing_thread_blocks);
 
@@ -215,11 +220,11 @@ public class PeakToCorrelationEnergy implements PatternComparator {
         }
 
         JCuda.cudaMemGetInfo(free, total);
-        //System.out.println("After FFT plans in PCE free GPU mem: " + free[0]/1024/1024 + " MB total: " + total[0]/1024/1024 + " MB ");
+        System.out.println("After FFT plans in PCE free GPU mem: " + free[0]/1024/1024 + " MB total: " + total[0]/1024/1024 + " MB ");
 
         long patternSize = h*w*2*4; //size of the FFT transformed pattern on the GPU
 
-        int fit_patterns = (int)(free[0] / patternSize); //debugging
+        int fit_patterns = (int)(free[0] / patternSize)-32; //debugging
         //System.out.println("There is still room for " + fit_patterns + " patterns on the GPU");
         num_patterns = fit_patterns/2 + 1;
         System.out.println("Allocating space for in total " + 2*num_patterns + " patterns on the GPU");
@@ -273,7 +278,6 @@ public class PeakToCorrelationEnergy implements PatternComparator {
         findPeak = Pointer.to(
                 Pointer.to(new int[]{h}),
                 Pointer.to(new int[]{w}),
-                Pointer.to(_d_peakValue.getDevicePointer()),
                 Pointer.to(_d_peakValues.getDevicePointer()),
                 Pointer.to(_d_peakIndex.getDevicePointer()),
                 Pointer.to(_d_c.getDevicePointer())
@@ -298,7 +302,7 @@ public class PeakToCorrelationEnergy implements PatternComparator {
      * @param predicate     a boolean matrix denoting which comparsions are to be made and which not
      * @returns             a double matrix with all PCE scores from comparing all patterns in x with all in y
      */
-    public double[][] compareGPU(float[][] xPatterns, float[][] yPatterns, boolean[][] predicate) {
+    public double[][] compareGPU(Pointer[] xPatterns, Pointer[] yPatterns, boolean[][] predicate) {
 
         double result[][] = new double[num_patterns][num_patterns];
 
@@ -344,8 +348,8 @@ public class PeakToCorrelationEnergy implements PatternComparator {
      * @param d_x   a reference to a float array for storing x on the GPU
      * @param x     a float array containing the pattern to transfer to the GPU 
      */
-    public void xTransform(CudaMemFloat d_x, float[] x) {
-        _d_inputx.copyHostToDeviceAsync(x, _stream1);
+    public void xTransform(CudaMemFloat d_x, Pointer x) {
+        _d_inputx.copyHostToDeviceAsync(x, h*w*Sizeof.FLOAT, _stream1);
         Pointer toComplexParams = Pointer.to(
                 Pointer.to(new int[]{h}),
                 Pointer.to(new int[]{w}),
@@ -367,8 +371,8 @@ public class PeakToCorrelationEnergy implements PatternComparator {
      * @param d_x   a reference to a float array for storing x on the GPU
      * @param x     a float array containing the pattern to transfer to the GPU 
      */
-    public void yTransform(CudaMemFloat d_y, float[] y) {
-        _d_inputy.copyHostToDeviceAsync(y, _stream2);
+    public void yTransform(CudaMemFloat d_y, Pointer y) {
+        _d_inputy.copyHostToDeviceAsync(y, h*w*Sizeof.FLOAT, _stream2);
         Pointer toComplexAndFlipParams = Pointer.to(
                 Pointer.to(new int[]{h}),
                 Pointer.to(new int[]{w}),
@@ -416,11 +420,9 @@ public class PeakToCorrelationEnergy implements PatternComparator {
 
         float peak[] = new float[1];
         double energy[] = new double[1];
-        if (useRealPeak) {
-            _d_peakValue.copyDeviceToHostAsync(peak, 1, _stream1);
-        } else {
-            _d_peakValues.copyDeviceToHostAsync(peak, 1, _stream1);
-        }
+        
+        _d_peakValues.copyDeviceToHostAsync(peak, 1, _stream1);
+        
         _d_energy.copyDeviceToHostAsync(energy, 1, _stream1);
         _stream1.synchronize();
 
@@ -467,11 +469,7 @@ public class PeakToCorrelationEnergy implements PatternComparator {
 
         float peak[] = new float[1];
         double energy[] = new double[1];
-        if (useRealPeak) {
-            _d_peakValue.copyDeviceToHostAsync(peak, 1, _stream1);
-        } else {
-            _d_peakValues.copyDeviceToHostAsync(peak, 1, _stream1);
-        }
+        _d_peakValues.copyDeviceToHostAsync(peak, 1, _stream1);
         _d_energy.copyDeviceToHostAsync(energy, 1, _stream1);
         _stream1.synchronize();
         double absPce = (double)(peak[0] * peak[0]) / energy[0];
@@ -555,7 +553,7 @@ public class PeakToCorrelationEnergy implements PatternComparator {
 
         float peak[] = new float[1];
         double energy[] = new double[1];
-        _d_peakValue.copyDeviceToHostAsync(peak, 1, _stream1);
+        _d_peakValues.copyDeviceToHostAsync(peak, 1, _stream1);
         _d_energy.copyDeviceToHostAsync(energy, 1, _stream1);
         _stream1.synchronize();
 
@@ -712,7 +710,7 @@ public class PeakToCorrelationEnergy implements PatternComparator {
         }
         _d_c.free();
         _d_peakIndex.free();
-        _d_peakValue.free();
+        _d_peakValues.free();
         _d_energy.free();
         JCufft.cufftDestroy(_plan1);
         JCufft.cufftDestroy(_plan2);

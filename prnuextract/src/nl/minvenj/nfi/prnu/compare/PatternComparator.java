@@ -15,6 +15,7 @@
 */
 package nl.minvenj.nfi.prnu.compare;
 
+import jcuda.Pointer;
 
 /**
  * This interface is used by objects that compute similarity scores of PRNU Patterns
@@ -41,7 +42,7 @@ public interface PatternComparator {
      * @param predicate     a boolean matrix denoting which comparsions are to be made and which not
      * @returns             a double matrix with all PCE scores from comparing all patterns in x with all in y
      */
-    public double[][] compareGPU(float[][] xPatterns, float[][] yPatterns, boolean[][] predicate);
+    public double[][] compareGPU(Pointer[] xPatterns, Pointer[] yPatterns, boolean[][] predicate);
 
 
     

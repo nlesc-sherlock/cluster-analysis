@@ -19,7 +19,8 @@
  * using Peak To Correlation Energy.
  *
  * @author Ben van Werkhoven <b.vanwerkhoven@esciencecenter.nl>
- * @version 0.1
+ * @author Hanno Spreeuw <h.spreeuw@esciencecenter.nl>
+ * @version 0.2
  */
 
 // Should be a power of two!!
@@ -31,26 +32,24 @@
 #define vector 1
 #endif
 
-typedef struct __align__(16) { float s0; float s1; float s2; float s3;} floatvier;
-
 typedef struct __align__(32) { float s0; float s1; float s2; float s3;
-                               float s4; float s5; float s6; float s7;} floatacht;
+                               float s4; float s5; float s6; float s7;} float8;
 
 typedef struct __align__(64) { float s0; float s1; float s2; float s3;
                                float s4; float s5; float s6; float s7; 
                                float s8; float s9; float s10; float s11; 
-                               float s12; float s13; float s14; float s15;} floatzestien;
+                               float s12; float s13; float s14; float s15;} float16;
 
 #if (vector==1)
 #define floatvector float 
 #elif (vector == 2)
 #define floatvector float2
 #elif (vector == 4)
-#define floatvector floatvier
+#define floatvector float4
 #elif (vector == 8) 
-#define floatvector floatacht
+#define floatvector float8
 #elif (vector == 16)
-#define floatvector floatzestien
+#define floatvector float16
 #endif
 
 
@@ -60,7 +59,6 @@ extern "C" {
     __global__ void computeNCC(double *output, floatvector *x, floatvector *y,  int n);
 }
 
-# 
 
 /*
  * Simple CUDA Helper function to reduce the output of a

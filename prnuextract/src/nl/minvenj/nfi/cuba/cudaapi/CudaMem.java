@@ -33,23 +33,23 @@ public abstract class CudaMem {
         return _deviceptr;
     }
 
-    protected void copyHostToDevice(final Pointer srcHost, final long byteCount) {
+    public void copyHostToDevice(final Pointer srcHost, final long byteCount) {
     	cuCtxSynchronize();
         cuMemcpyHtoD(_deviceptr, srcHost, byteCount);
     	cuCtxSynchronize();
     }
 
-    protected void copyDeviceToHost(final Pointer dstHost, final long byteCount) {
+    public void copyDeviceToHost(final Pointer dstHost, final long byteCount) {
     	cuCtxSynchronize();
         cuMemcpyDtoH(dstHost, _deviceptr, byteCount);
     	cuCtxSynchronize();
     }
 
-    protected void copyHostToDeviceAsync(final Pointer srcHost, final long byteCount, CudaStream stream) {
+    public void copyHostToDeviceAsync(final Pointer srcHost, final long byteCount, CudaStream stream) {
     	cuMemcpyHtoDAsync(_deviceptr, srcHost, byteCount, stream.cuStream());
     }
 
-    protected void copyDeviceToHostAsync(final Pointer dstHost, final long byteCount, CudaStream stream) {
+    public void copyDeviceToHostAsync(final Pointer dstHost, final long byteCount, CudaStream stream) {
     	cuMemcpyDtoHAsync(dstHost, _deviceptr, byteCount, stream.cuStream());
     }
     

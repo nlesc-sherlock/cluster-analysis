@@ -121,12 +121,6 @@ public class GrayscaleFilter {
 		//extract the color values of the image into a byte array
 		byte[] colors = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
 
-        //print value of first 5 pixels
-        //for (int i=0; i < 15; i+=3) {
-        //    System.out.print(colors[i] + "," + colors[i+1] + "," + colors[i+2] + " ");
-        //}
-        //System.out.println("");		
-
 		//copy the image color values to the GPU
 		_d_colors.copyHostToDeviceAsync(colors, _stream);
 
@@ -134,7 +128,7 @@ public class GrayscaleFilter {
 		_grayscale.launch(_stream, grayscale);
 
 		//for measuring time
-		JCudaDriver.cuCtxSynchronize();
+		//JCudaDriver.cuCtxSynchronize();
 	}
 
 	/**

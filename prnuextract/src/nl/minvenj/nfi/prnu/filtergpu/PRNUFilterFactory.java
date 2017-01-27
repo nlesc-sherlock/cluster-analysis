@@ -36,7 +36,7 @@ import org.apache.commons.io.IOUtils;
  */
 public class PRNUFilterFactory {
 
-	private static final String[] filenames = { "GrayscaleFilter.cu", "FastNoiseFilter.cu", "ZeroMeanTotalFilter.cu", "WienerFilter.cu"};
+	private static final String[] filenames = { "grayscalefilter.cu", "fastnoisefilter.cu", "zeromeantotalfilter.cu", "wienerfilter.cu"};
 	private static String architecture = "compute_52";
 	private static String capability = "sm_52";
 	

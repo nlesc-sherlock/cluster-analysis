@@ -38,7 +38,7 @@ import java.util.HashMap;
 import java.util.ArrayList;
 
 import java.io.*;
-
+import jcuda.Pointer;
 
 /**
  * PrnuExtractGPU is an application for extracting and comparing PRNU filters.
@@ -77,7 +77,7 @@ public class PrnuExtractGPU {
      * @param filenames     a String array containing all the filenames of the images to be compared
      * @param patternsGPU   an array of PRNU patterns stored as float arrays, the output of this method
      * @param input_files   an array of File objects pointing to the input files for this dataset
-     */
+    */
     void extractPatterns(String[] filenames, float[][] patternsGPU, File[] input_files) {
         int numfiles = filenames.length;
         //extract patterns
@@ -110,6 +110,7 @@ public class PrnuExtractGPU {
         int numfiles = filenames.length;
         double cortable[][] = new double[numfiles][numfiles];
         long start, end;
+/*
 
         NormalizedCrossCorrelation NCC = new NormalizedCrossCorrelation(
                 this.height,
@@ -169,7 +170,7 @@ public class PrnuExtractGPU {
 
         }
         NCC.printTime();
-
+*/
         return cortable;
     }
 
@@ -193,8 +194,8 @@ public class PrnuExtractGPU {
         int iblocks = (int)Math.ceil(numfiles/(double)block_size);
         boolean[][] predicate = new boolean[block_size][block_size];
         double[][] result;
-        float[][] xPatterns = new float[block_size][];
-        float[][] yPatterns = new float[block_size][];
+        Pointer[] xPatterns = new Pointer[block_size];
+        Pointer[] yPatterns = new Pointer[block_size];
 
         //compare patterns and print edgelist
         for (int i=0; i<iblocks; i++) {
@@ -291,7 +292,7 @@ public class PrnuExtractGPU {
         PeakToCorrelationEnergy PCE = new PeakToCorrelationEnergy(
                 this.height,
                 this.width, filterFactory.getContext(), 
-                filterFactory.compile("PeakToCorrelationEnergy.cu"), useRealPeak);
+                filterFactory.compile("peaktocorrelationenergy.cu"), useRealPeak);
 
         System.out.println("Comparing patterns...");
 
@@ -446,20 +447,21 @@ public class PrnuExtractGPU {
             //update the similarity matrix
             for (int i=0; i<N; i++) {
                 if (cluster_members.containsKey(i)) {
+                    int other = cluster_ids.get(i);
                     double sum = 0.0;
                     ArrayList<Integer> a = cluster_members.get(next_cluster_id);
-                    ArrayList<Integer> b = cluster_members.get(i);
+                    ArrayList<Integer> b = cluster_members.get(other);
 
                     for (int j=0; j<a.size(); j++) {
                         for (int k=0; k<b.size(); k++) {
-                            sum += cortable[a.get(i)][b.get(k)]; //needs to be cortable NOT matrix
+                            sum += cortable[a.get(j)][b.get(k)]; //needs to be cortable NOT matrix
                         }
                     }
 
                     double avg = sum / (a.size()*b.size());
 
-                    matrix[next_cluster_id][i] = avg;
-                    matrix[i][next_cluster_id] = avg;
+                    matrix[n1][i] = avg;
+                    matrix[i][n1] = avg;
                 }
             }
 

@@ -34,15 +34,12 @@ public final class FastNoiseFilter {
 	protected CudaStream _stream;
 
 	//handles to CUDA kernels
-	protected CudaFunction _convolveVertically;
-	protected CudaFunction _convolveHorizontally;
-	protected CudaFunction _normalize;
-	protected CudaFunction _zeroMem;
+	protected CudaFunction _normalized_gradient;
+	protected CudaFunction _gradient;
 
 	//handles to device memory arrays
 	protected CudaMemFloat _d_input;
-	protected CudaMemFloat _d_dxs;
-	protected CudaMemFloat _d_dys;
+	protected CudaMemFloat _d_temp;
 
 	//threads
 	protected int _threads_x = 32;
@@ -55,14 +52,8 @@ public final class FastNoiseFilter {
 	protected int _grid_z;
 
 	//parameterlists for kernel invocations
-	protected Pointer convolveHorizontallyDXS;
-	protected Pointer convolveVerticallyDYS;
-	protected Pointer normalizeDXSDYS;
-	protected Pointer convolveHorizontallyINPUT;
-	protected Pointer convolveVerticallyINPUT;
-	protected Pointer zeroDXS;
-	protected Pointer zeroDYS;
-	protected Pointer zeroINPUT;
+	protected Pointer normalized_gradient;
+	protected Pointer gradient;
 
 	protected int h;
 	protected int w;
@@ -90,75 +81,29 @@ public final class FastNoiseFilter {
 		_grid_z = 1;
 
 		//setup cuda functions
-		_convolveVertically = module.getFunction("convolveVertically");
-		_convolveVertically.setDim(_grid_x, _grid_y, _grid_z, _threads_x, _threads_y, _threads_z);
+		_normalized_gradient = module.getFunction("normalized_gradient");
+		_normalized_gradient.setDim(_grid_x, _grid_y, _grid_z, _threads_x, _threads_y, _threads_z);
 
-		_convolveHorizontally = module.getFunction("convolveHorizontally");
-		_convolveHorizontally.setDim(_grid_x, _grid_y, _grid_z, _threads_x, _threads_y, _threads_z);
-
-		_normalize = module.getFunction("normalize");
-		_normalize.setDim(_grid_x, _grid_y, _grid_z, _threads_x, _threads_y, _threads_z);
-
-		_zeroMem = module.getFunction("zeroMem");
-		_zeroMem.setDim(_grid_x, _grid_y, _grid_z, _threads_x, _threads_y, _threads_z);
+		_gradient = module.getFunction("gradient");
+		_gradient.setDim(_grid_x, _grid_y, _grid_z, _threads_x, _threads_y, _threads_z);
 
 		// Allocate the CUDA buffers for this kernel
-		_d_dxs = _context.allocFloats(w*h);
-		_d_dys = _context.allocFloats(w*h);
+		_d_temp = _context.allocFloats(w*h);
 
 		// Setup the parameter lists for each kernel call 
-		convolveHorizontallyDXS = Pointer.to(
+		normalized_gradient = Pointer.to(
 				Pointer.to(new int[]{h}),
 				Pointer.to(new int[]{w}),
-				Pointer.to(_d_dxs.getDevicePointer()),
+				Pointer.to(_d_temp.getDevicePointer()),
 				Pointer.to(_d_input.getDevicePointer())
 				);
 
-		convolveVerticallyDYS = Pointer.to(
-				Pointer.to(new int[]{h}),
-				Pointer.to(new int[]{w}),
-				Pointer.to(_d_dys.getDevicePointer()),
-				Pointer.to(_d_input.getDevicePointer())
-				);
-
-		normalizeDXSDYS = Pointer.to(
-				Pointer.to(new int[]{h}),
-				Pointer.to(new int[]{w}),
-				Pointer.to(_d_dxs.getDevicePointer()),
-				Pointer.to(_d_dys.getDevicePointer())
-				);
-
-		convolveHorizontallyINPUT = Pointer.to(
+		gradient = Pointer.to(
 				Pointer.to(new int[]{h}),
 				Pointer.to(new int[]{w}),
 				Pointer.to(_d_input.getDevicePointer()),
-				Pointer.to(_d_dxs.getDevicePointer())
+				Pointer.to(_d_temp.getDevicePointer())
 				);
-
-		convolveVerticallyINPUT = Pointer.to(
-				Pointer.to(new int[]{h}),
-				Pointer.to(new int[]{w}),
-				Pointer.to(_d_input.getDevicePointer()),
-				Pointer.to(_d_dys.getDevicePointer())
-				);
-
-        zeroDXS = Pointer.to(
-                Pointer.to(new int[]{h}),
-                Pointer.to(new int[]{w}),
-                Pointer.to(_d_dxs.getDevicePointer())
-                );
-        zeroDYS = Pointer.to(
-                Pointer.to(new int[]{h}),
-                Pointer.to(new int[]{w}),
-                Pointer.to(_d_dys.getDevicePointer())
-                );
-        zeroINPUT = Pointer.to(
-                Pointer.to(new int[]{h}),
-                Pointer.to(new int[]{w}),
-                Pointer.to(_d_input.getDevicePointer())
-                );
-
-
 
 	}
 
@@ -273,27 +218,10 @@ public final class FastNoiseFilter {
 	 */
 	public void applyGPU() {
 
-		//_d_dxs.memset(0, w*h, _stream);
-		//_d_dys.memset(0, w*h, _stream);
-		//JCudaDriver.cuCtxSynchronize();
-        _zeroMem.launch(_stream, zeroDXS);
-        _zeroMem.launch(_stream, zeroDYS);
+		_normalized_gradient.launch(_stream, normalized_gradient);
 
-		_convolveHorizontally.launch(_stream, convolveHorizontallyDXS);
+		_gradient.launch(_stream, gradient);
 
-		_convolveVertically.launch(_stream, convolveVerticallyDYS);
-
-		_normalize.launch(_stream, normalizeDXSDYS);
-
-		//_d_input.memset(0, w*h, _stream);
-		//JCudaDriver.cuCtxSynchronize();
-        _zeroMem.launch(_stream, zeroINPUT);
-
-		_convolveHorizontally.launch(_stream, convolveHorizontallyINPUT);
-
-		_convolveVertically.launch(_stream, convolveVerticallyINPUT);
-
-		//for measuring time
 		JCudaDriver.cuCtxSynchronize();
 	}
 
@@ -301,8 +229,7 @@ public final class FastNoiseFilter {
 	 * cleans up GPU memory
 	 */
 	public void cleanup() {
-		_d_dxs.free();
-		_d_dys.free();
+		_d_temp.free();
 	}
 
 }

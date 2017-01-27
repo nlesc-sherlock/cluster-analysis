@@ -14,6 +14,14 @@
 * limitations under the License.
 */
 
+#ifndef block_size_x
+#define block_size_x 32
+#endif
+
+#ifndef block_size_y
+#define block_size_y 16
+#endif
+
 /**
  * This file contains the CUDA kernel for converting an image into
  * a grayscale array of floats. Scaling factors used are:
@@ -32,13 +40,13 @@ extern "C" {
  *
  * Bytes go in, floats come out, alpha is ignored
  *
- * gridDim.x = w / blockDim.x  (ceiled)
- * gridDim.y = h / blockDim.y  (ceiled)
+ * gridDim.x = w / block_size_x  (ceiled)
+ * gridDim.y = h / block_size_y  (ceiled)
  */
 //__global__ void grayscale(int h, int w, float* output, uchar3* input) {
 __global__ void grayscale(int h, int w, float* output, char* input) {
-	int i = threadIdx.y + blockIdx.y * blockDim.y;
-	int j = threadIdx.x + blockIdx.x * blockDim.x;
+	int i = threadIdx.y + blockIdx.y * block_size_y;
+	int j = threadIdx.x + blockIdx.x * block_size_x;
 	
     uchar3 *c3_input = (uchar3 *)input;
 

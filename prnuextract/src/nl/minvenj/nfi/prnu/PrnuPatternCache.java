@@ -23,7 +23,9 @@ import java.awt.image.BufferedImage;
 import nl.minvenj.nfi.prnu.filtergpu.*;
 import nl.minvenj.nfi.prnu.Util;
 
-
+import jcuda.Pointer;
+import jcuda.Sizeof;
+import jcuda.driver.JCudaDriver;
 
 /**
  * This class implements a simple cache for PRNU patterns
@@ -105,7 +107,7 @@ public class PrnuPatternCache {
      * 
      * @param filename  a String containing the name of the image to which the pattern we want to retrieve belongs
      */
-    float[] retrieve(String filename) {
+    Pointer retrieve(String filename) {
         cacheItem item = cache.get(filename);
         //if item not in cache yet
         if (item == null) {
@@ -184,7 +186,7 @@ public class PrnuPatternCache {
     private class cacheItem {
 
         public long used;
-        public float[] pattern;
+        public Pointer pattern;
 
         /**
          * Constructs a cacheItem based on a filename of an image
@@ -204,7 +206,11 @@ public class PrnuPatternCache {
                 System.exit(1);
             }
 
-            pattern = filter.apply(image);
+            long nbytes = image.getHeight()*image.getWidth()*Sizeof.FLOAT;
+            Pointer hostPointer = new Pointer();
+            JCudaDriver.cuMemAllocHost(hostPointer, nbytes);
+
+            pattern = filter.apply(image, hostPointer);
         }
 
         /**
@@ -213,7 +219,7 @@ public class PrnuPatternCache {
          *
          * @returns     a float array containing the PRNU pattern
          */
-        float[] getPattern() {
+        Pointer getPattern() {
             used = counter++;
             return pattern;
         }

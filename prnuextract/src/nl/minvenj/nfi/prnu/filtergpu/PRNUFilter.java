@@ -18,11 +18,15 @@ package nl.minvenj.nfi.prnu.filtergpu;
 import java.awt.image.BufferedImage;
 
 import nl.minvenj.nfi.cuba.cudaapi.CudaContext;
+import nl.minvenj.nfi.cuba.cudaapi.CudaMem;
 import nl.minvenj.nfi.cuba.cudaapi.CudaMemFloat;
 import nl.minvenj.nfi.cuba.cudaapi.CudaModule;
 import nl.minvenj.nfi.cuba.cudaapi.CudaStream;
 
+import jcuda.*;
 import jcuda.driver.*;
+
+import java.nio.FloatBuffer;
 
 /**
  * PRNUFilter is created for a specific image size. The CUDA source files
@@ -84,6 +88,23 @@ public class PRNUFilter {
 	 * @param image - a BufferedImage containing the input image from which the PRNU pattern is to be extracted
 	 * @return - a 1D float array containing the PRNU pattern of the input image 
 	 */
+	public Pointer apply(BufferedImage image, Pointer hostPointer) {
+		grayscaleFilter.applyGPU(image);
+
+		fastNoiseFilter.applyGPU();
+		zeroMeanTotalFilter.applyGPU();
+		wienerFilter.applyGPU();
+		
+        //allocate pinned host memory
+        long nbytes = w*h*jcuda.Sizeof.FLOAT;
+
+		d_input.copyDeviceToHostAsync(hostPointer, nbytes, stream);
+
+		stream.synchronize();
+
+		return hostPointer;
+	}
+
 	public float[] apply(BufferedImage image) {
 		grayscaleFilter.applyGPU(image);
 
@@ -91,19 +112,14 @@ public class PRNUFilter {
 		zeroMeanTotalFilter.applyGPU();
 		wienerFilter.applyGPU();
 		
-		stream.synchronize();
-        JCudaDriver.cuCtxSynchronize();
-
 		float[] pixelsFloat = new float[w*h];
 		d_input.copyDeviceToHostAsync(pixelsFloat, pixelsFloat.length, stream);
 
 		stream.synchronize();
-        JCudaDriver.cuCtxSynchronize();
 		
 		return pixelsFloat;
-
 	}
-	
+
 	/*
 	 * Getters for the individual filters
 	 */

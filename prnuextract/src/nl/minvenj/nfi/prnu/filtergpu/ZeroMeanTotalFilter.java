@@ -34,17 +34,15 @@ public class ZeroMeanTotalFilter {
 
 	//handles to CUDA kernels
 	protected CudaFunction _computeMeanVertically;
-	protected CudaFunction _transpose;
+	protected CudaFunction _computeMeanHorizontally;
 
 	//handles to device memory arrays
 	protected CudaMemFloat _d_input;
 	protected CudaMemFloat _d_output;
 
 	//parameterlists for kernel invocations
-	protected Pointer computeMeanVerticallyCol;
-	protected Pointer transposeForward;
-	protected Pointer computeMeanVerticallyRow;
-	protected Pointer transposeBackward;
+	protected Pointer computeMeanVertically;
+	protected Pointer computeMeanHorizontally;
 	
 	protected int h;
 	protected int w;
@@ -67,45 +65,28 @@ public class ZeroMeanTotalFilter {
 		this.w = w;
 
 		// Setup cuda functions
-		_computeMeanVertically = module.getFunction("computeMeanVertically");
-		final int ZMThreads_x = 256; //32
-		final int ZMThreads_y = 1;  //16
-		_computeMeanVertically.setDim((int)Math.ceil((float)Math.max(w,h) / (float)ZMThreads_x), 1, 1,
-				ZMThreads_x, ZMThreads_y, 1);
-		_transpose = module.getFunction("transpose");
-		final int TThreads_x = 16;
-		final int TThreads_y = 16;
-		_transpose.setDim(	(int)Math.ceil((double)w/(double)TThreads_x), (int)Math.ceil((double)h/(double)TThreads_y), 1,
-				TThreads_x, TThreads_y, 1);
+		final int block_size_x = 32;
+		final int block_size_y = 16;
 
-		// Allocate the CUDA buffers for this kernel
-		_d_output = _context.allocFloats(w*h);
+		_computeMeanVertically = module.getFunction("computeMeanVertically");
+		_computeMeanVertically.setDim((int)Math.ceil((float)Math.max(w,h) / (float)block_size_x), 1, 1,
+				block_size_x, block_size_y, 1);
+
+		_computeMeanHorizontally = module.getFunction("computeMeanHorizontally");
+		_computeMeanHorizontally.setDim((int)Math.ceil((float)Math.max(w,h) / (float)block_size_x), 1, 1,
+				block_size_x, block_size_y, 1);
 
 		// Setup the parameter lists for each kernel call 
-		computeMeanVerticallyCol = Pointer.to(
+		computeMeanVertically = Pointer.to(
 				Pointer.to(new int[]{h}),
 				Pointer.to(new int[]{w}),
 				Pointer.to(_d_input.getDevicePointer())
 				);
 
-		transposeForward = Pointer.to(
+		computeMeanHorizontally = Pointer.to(
 				Pointer.to(new int[]{h}),
 				Pointer.to(new int[]{w}),
-				Pointer.to(_d_output.getDevicePointer()),
 				Pointer.to(_d_input.getDevicePointer())
-				);
-
-		computeMeanVerticallyRow = Pointer.to(
-				Pointer.to(new int[]{w}),
-				Pointer.to(new int[]{h}),
-				Pointer.to(_d_output.getDevicePointer())
-				);
-
-		transposeBackward = Pointer.to(
-				Pointer.to(new int[]{w}),
-				Pointer.to(new int[]{h}),
-				Pointer.to(_d_input.getDevicePointer()),
-				Pointer.to(_d_output.getDevicePointer())
 				);
 
 	}
@@ -205,26 +186,14 @@ public class ZeroMeanTotalFilter {
 	 */
 	public void applyGPU() {
 
-        //zero d_output just in case
-        //_d_output.memset(0, w*h, _stream);
-		
 		//apply zero mean filter vertically
-		_computeMeanVertically.launch(_stream, computeMeanVerticallyCol);
+		_computeMeanVertically.launch(_stream, computeMeanVertically);
 
-		//transpose the result
-		_transpose.launch(_stream, transposeForward);
+		//apply the horizontal filter again to the transposed values
+		_computeMeanHorizontally.launch(_stream, computeMeanHorizontally);
 
-		//apply the vertical filter again to the transposed values
-		_computeMeanVertically.launch(_stream, computeMeanVerticallyRow);
-
-		//perform another transpose to get back to the original image layout
-		//this kernel is called differently because the width and height
-		//of the image have become swapped at the previous transpose
-		_transpose.launchKernel((int)Math.ceil((double)h/(double)16), (int)Math.ceil((double)w/(double)16),
-				1, 16, 16, 1, 0, _stream, transposeBackward);
-		
-		//for measuring time
-		JCudaDriver.cuCtxSynchronize();
+        //check
+        JCudaDriver.cuCtxSynchronize();
 	}
 	
 	/**

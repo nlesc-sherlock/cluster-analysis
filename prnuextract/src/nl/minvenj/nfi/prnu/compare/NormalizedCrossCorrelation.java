@@ -140,7 +140,11 @@ public class NormalizedCrossCorrelation implements PatternComparator {
 
     }
 
+    public double[][] compareGPU(Pointer[] xPatterns, Pointer[] yPatterns, boolean[][] predicate) {
 
+        return null;
+
+    }
     /**
      * This method performs an array of comparisons between patterns
      * It computes the NCC scores between all patterns in xPatterns and those in yPatterns

@@ -22,6 +22,14 @@
  * @version 0.1
  */
 
+#ifndef block_size_x
+#define block_size_x 32
+#endif
+
+#ifndef block_size_y
+#define block_size_y 16
+#endif
+
 
 //function interfaces to prevent C++ garbling the kernel names
 extern "C" {
@@ -30,9 +38,7 @@ extern "C" {
     __global__ void toComplexAndFlip2(int h, int w, float* x, float* y, float* input_x, float *input_y);
     __global__ void computeEnergy(int h, int w, double *energy, int *peakIndex, float *input);
     __global__ void computeCrossCorr(int h, int w, float *c, float *x, float *y);
-    __global__ void findPeak(int h, int w, float *peakValue, float *peakValues, int *peakIndex, float *input);
-    __device__ double my_atomicAdd(double* address, double val);
-
+    __global__ void findPeak(int h, int w, float *peakValues, int *peakIndex, float *input);
 
     __global__ void sumDoubles(double *output, double *input, int n);
     __global__ void maxlocFloats(int *output_loc, float *output_float, int *input_loc, float *input_float, int n);
@@ -43,8 +49,8 @@ extern "C" {
  * Simple helper kernel to convert an array of real values to an array of complex values
  */
 __global__ void toComplex(int h, int w, float* x, float *input_x) {
-    int i = threadIdx.y + blockIdx.y * blockDim.y;
-    int j = threadIdx.x + blockIdx.x * blockDim.x;
+    int i = threadIdx.y + blockIdx.y * block_size_y;
+    int j = threadIdx.x + blockIdx.x * block_size_x;
 
     if (i < h && j < w) {
         x[i * w * 2 + 2 * j] = input_x[i * w + j];
@@ -56,8 +62,8 @@ __global__ void toComplex(int h, int w, float* x, float *input_x) {
  * Simple helper kernel to convert an array of real values to a flipped array of complex values
  */
 __global__ void toComplexAndFlip(int h, int w, float *y, float* input_y) {
-    int i = threadIdx.y + blockIdx.y * blockDim.y;
-    int j = threadIdx.x + blockIdx.x * blockDim.x;
+    int i = threadIdx.y + blockIdx.y * block_size_y;
+    int j = threadIdx.x + blockIdx.x * block_size_x;
 
     if (i < h && j < w) {
         //y is flipped vertically and horizontally
@@ -71,9 +77,9 @@ __global__ void toComplexAndFlip(int h, int w, float *y, float* input_y) {
 /**
  * Two-in-one kernel that puts x and y to Complex, but flips y
  */
-__global__ void toComplexAndFlip2(int h, int w, float* x, float *y, float *input_x, float* input_y) {
-    int i = threadIdx.y + blockIdx.y * blockDim.y;
-    int j = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void toComplexAndFlip2(int h, int w, float *x, float *y, float *input_x, float *input_y) {
+    int i = threadIdx.y + blockIdx.y * block_size_y;
+    int j = threadIdx.x + blockIdx.x * block_size_x;
 
     if (i < h && j < w) {
         x[i * w * 2 + 2 * j] = input_x[i * w + j];
@@ -89,13 +95,12 @@ __global__ void toComplexAndFlip2(int h, int w, float* x, float *y, float *input
 }
 
 
-
 /*
  * This method computes a cross correlation in frequency space
  */
 __global__ void computeCrossCorr(int h, int w, float *c, float *x, float *y) {
-    int i = threadIdx.y + blockIdx.y * blockDim.y;
-    int j = threadIdx.x + blockIdx.x * blockDim.x;
+    int i = threadIdx.y + blockIdx.y * block_size_y;
+    int j = threadIdx.x + blockIdx.x * block_size_x;
 
     if (i < h && j < w) {
         float xRe = x[i*w*2+j*2];
@@ -108,6 +113,14 @@ __global__ void computeCrossCorr(int h, int w, float *c, float *x, float *y) {
 }
 
 
+/* ----------- kernels below this line are reducing kernels ------------ */
+#ifndef grid_size_x   //hack to check if kernel tuner is being used
+ #undef block_size_x
+ #define block_size_x 256
+#endif
+
+
+
 /* 
  * This method searches for the peak value in a cross correlated signal and outputs the index
  * input is assumed to be a complex array of which only the real component contains values that
@@ -118,15 +131,14 @@ __global__ void computeCrossCorr(int h, int w, float *c, float *x, float *y) {
  * 
  * In case of multiple thread blocks initialize output to zero and use atomic add or another kernel
  */
-#define LARGETB 1024      //has to be a power of two because of reduce
-__global__ void findPeak(int h, int w, float *peakValue, float *peakValues, int *peakIndex, float *input) {
+__global__ void findPeak(int h, int w, float *peakValues, int *peakIndex, float *input) {
 
-    int x = blockIdx.x * LARGETB + threadIdx.x;
+    int x = blockIdx.x * block_size_x + threadIdx.x;
     int ti = threadIdx.x;
-    int step_size = gridDim.x * LARGETB;
+    int step_size = gridDim.x * block_size_x;
     int n = h*w;
-    __shared__ float shmax[LARGETB];
-    __shared__ int shind[LARGETB];
+    __shared__ float shmax[block_size_x];
+    __shared__ int shind[block_size_x];
 
     //compute thread-local sums
     float max = -1.0f;
@@ -146,7 +158,7 @@ __global__ void findPeak(int h, int w, float *peakValue, float *peakValues, int 
     __syncthreads();
         
     //reduce local sums
-    for (unsigned int s=LARGETB/2; s>0; s>>=1) {
+    for (unsigned int s=block_size_x/2; s>0; s>>=1) {
         if (ti < s) {
             float v1 = shmax[ti];
             float v2 = shmax[ti + s];
@@ -162,9 +174,6 @@ __global__ void findPeak(int h, int w, float *peakValue, float *peakValues, int 
     if (ti == 0) {
         peakValues[blockIdx.x] = shmax[0];
         peakIndex[blockIdx.x] = shind[0];
-        if (blockIdx.x == 0) {
-            peakValue[0] = input[n*2-2]; //instead of using real peak use last real value
-        }
     }
 
 }
@@ -185,20 +194,20 @@ __global__ void findPeak(int h, int w, float *peakValue, float *peakValues, int 
 #define RADIUS 5
 __global__ void computeEnergy(int h, int w, double *energy, int *peakIndex, float *input) {
 
-    int x = blockIdx.x * LARGETB + threadIdx.x;
+    int x = blockIdx.x * block_size_x + threadIdx.x;
     int ti = threadIdx.x;
-    int step_size = gridDim.x * LARGETB;
+    int step_size = gridDim.x * block_size_x;
     int n = h*w;
-    __shared__ double shmem[LARGETB];
+    __shared__ double shmem[block_size_x];
 
     int peak_i = peakIndex[0];
     int peak_y = peak_i / w;
     int peak_x = peak_i - (peak_y * w);
 
-    if (ti < n) {
+    double sum = 0.0f;
 
+    if (ti < n) {
         //compute thread-local sums
-        double sum = 0.0f;
         for (int i=x; i < n; i+=step_size) {
             int row = i / w;
             int col = i - (row*w);
@@ -213,52 +222,26 @@ __global__ void computeEnergy(int h, int w, double *energy, int *peakIndex, floa
                 sum += val * val;
             }
         }
-        
-        //store local sums in shared memory
-        shmem[ti] = sum;
-        __syncthreads();
-        
-        //reduce local sums
-        for (unsigned int s=LARGETB/2; s>0; s>>=1) {
-            if (ti < s) {
-                shmem[ti] += shmem[ti + s];
-            }
-            __syncthreads();
-        }
-        
-        //write result
-        if (ti == 0) {
-            //use 1 thread block or multiple kernel calls
-            energy[blockIdx.x] = shmem[0] / (double)((w*h) - (SQUARE_SIZE * SQUARE_SIZE));
-
-            //use atomics in case of multiple threads and single kernel call
-            //don't forget to zero output by the host
-            //double l_energy = shmem[0] / (double)(w*h);
-            //my_atomicAdd(energy, l_energy);
-        }
-
     }
+        
+    //store local sums in shared memory
+    shmem[ti] = sum;
+    __syncthreads();
+        
+    //reduce local sums
+    for (unsigned int s=block_size_x/2; s>0; s>>=1) {
+        if (ti < s) {
+            shmem[ti] += shmem[ti + s];
+        }
+        __syncthreads();
+    }
+        
+    //write result
+    if (ti == 0) {
+        energy[blockIdx.x] = shmem[0] / (double)((w*h) - (SQUARE_SIZE * SQUARE_SIZE));
+    }
+
 }
-
-
-__device__ double my_atomicAdd(double* address, double val)
-{
-    unsigned long long int* address_as_ull =
-                              (unsigned long long int*)address;
-    unsigned long long int old = *address_as_ull, assumed;
-
-    do {
-        assumed = old;
-        old = atomicCAS(address_as_ull, assumed,
-                        __double_as_longlong(val +
-                               __longlong_as_double(assumed)));
-
-    // Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
-    } while (assumed != old);
-
-    return __longlong_as_double(old);
-}
-
 
 
 /*
@@ -271,11 +254,11 @@ __device__ double my_atomicAdd(double* address, double val)
  */
 __global__ void sumDoubles(double *output, double *input, int n) {
     int ti = threadIdx.x;
-    __shared__ double shmem[LARGETB];
+    __shared__ double shmem[block_size_x];
 
     //compute thread-local sums
     double sum = 0.0;
-    for (int i=ti; i < n; i+=LARGETB) {
+    for (int i=ti; i < n; i+=block_size_x) {
         sum += input[i];
     }
         
@@ -284,7 +267,7 @@ __global__ void sumDoubles(double *output, double *input, int n) {
     __syncthreads();
         
     //reduce local sums
-    for (unsigned int s=LARGETB/2; s>0; s>>=1) {
+    for (unsigned int s=block_size_x/2; s>0; s>>=1) {
         if (ti < s) {
             shmem[ti] += shmem[ti + s];
         }
@@ -309,14 +292,14 @@ __global__ void sumDoubles(double *output, double *input, int n) {
 __global__ void maxlocFloats(int *output_loc, float *output_float, int *input_loc, float *input_float, int n) {
 
     int ti = threadIdx.x;
-    __shared__ float shmax[LARGETB];
-    __shared__ int shind[LARGETB];
+    __shared__ float shmax[block_size_x];
+    __shared__ int shind[block_size_x];
 
     //compute thread-local variables
     float max = -1.0f;
     float val = 0.0f;
     int loc = -1;
-    for (int i=ti; i < n; i+=LARGETB) {
+    for (int i=ti; i < n; i+=block_size_x) {
          val = input_float[i];
          if (val > max) {
              max = val;
@@ -330,7 +313,7 @@ __global__ void maxlocFloats(int *output_loc, float *output_float, int *input_lo
     __syncthreads();
         
     //reduce local variables
-    for (unsigned int s=LARGETB/2; s>0; s>>=1) {
+    for (unsigned int s=block_size_x/2; s>0; s>>=1) {
         if (ti < s) {
             float v1 = shmax[ti];
             float v2 = shmax[ti + s];

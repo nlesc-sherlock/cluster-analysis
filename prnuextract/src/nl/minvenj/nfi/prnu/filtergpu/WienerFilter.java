@@ -82,7 +82,7 @@ public class WienerFilter {
 		_context = context;
 		_stream = stream;
 		_d_input = input;
-		float n = (float)(h*w);
+		int n = h*w;
 		this.h = h;
 		this.w = w;
 
@@ -110,7 +110,7 @@ public class WienerFilter {
 		_computeVarianceEstimates.setDim(	(int)Math.ceil((float)w / (float)threads_x), (int)Math.ceil((float)h / (float)threads_y), 1,
 				threads_x, threads_y, 1);
 		
-		final int threads = 1024;
+		final int threads = 256;
 		_computeVarianceZeroMean = module.getFunction("computeVarianceZeroMean");
 		_computeVarianceZeroMean.setDim(	1, 1, 1,
 				threads, 1, 1);
@@ -170,7 +170,7 @@ public class WienerFilter {
 				Pointer.to(_d_sqmag.getDevicePointer())
 				);
 		variancep = Pointer.to(
-				Pointer.to(new float[]{n}),
+				Pointer.to(new int[]{n}),
 				Pointer.to(_d_variance.getDevicePointer()),
 				Pointer.to(_d_input.getDevicePointer())
 				);
