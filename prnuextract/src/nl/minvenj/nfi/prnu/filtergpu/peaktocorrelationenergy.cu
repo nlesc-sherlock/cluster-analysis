@@ -38,7 +38,7 @@ extern "C" {
     __global__ void toComplexAndFlip2(int h, int w, float* x, float* y, float* input_x, float *input_y);
     __global__ void computeEnergy(int h, int w, double *energy, int *peakIndex, float *input);
     __global__ void computeCrossCorr(int h, int w, float *c, float *x, float *y);
-    __global__ void findPeak(int h, int w, float *peakValues, int *peakIndex, float *input);
+    __global__ void findPeak(int h, int w, float *peakValue, float *peakValues, int *peakIndex, float *input);
 
     __global__ void sumDoubles(double *output, double *input, int n);
     __global__ void maxlocFloats(int *output_loc, float *output_float, int *input_loc, float *input_float, int n);
@@ -131,7 +131,7 @@ __global__ void computeCrossCorr(int h, int w, float *c, float *x, float *y) {
  * 
  * In case of multiple thread blocks initialize output to zero and use atomic add or another kernel
  */
-__global__ void findPeak(int h, int w, float *peakValues, int *peakIndex, float *input) {
+__global__ void findPeak(int h, int w, float *peakValue, float *peakValues, int *peakIndex, float *input) {
 
     int x = blockIdx.x * block_size_x + threadIdx.x;
     int ti = threadIdx.x;
@@ -151,7 +151,7 @@ __global__ void findPeak(int h, int w, float *peakValues, int *peakIndex, float 
             index = i;
         }
     }
-        
+
     //store local sums in shared memory
     shmax[ti] = max;
     shind[ti] = index;
@@ -174,6 +174,9 @@ __global__ void findPeak(int h, int w, float *peakValues, int *peakIndex, float 
     if (ti == 0) {
         peakValues[blockIdx.x] = shmax[0];
         peakIndex[blockIdx.x] = shind[0];
+        if (blockIdx.x == 0) {
+            peakValue[0] = input[n*2-2]; //instead of using real peak use last real value
+        }
     }
 
 }

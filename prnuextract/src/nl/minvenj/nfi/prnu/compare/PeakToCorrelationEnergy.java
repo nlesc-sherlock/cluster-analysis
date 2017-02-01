@@ -67,6 +67,7 @@ public class PeakToCorrelationEnergy implements PatternComparator {
     protected CudaMemFloat _d_c;
     protected CudaMemInt _d_peakIndex;
     protected CudaMemFloat _d_peakValues;
+    protected CudaMemFloat _d_peakValue;
     protected CudaMemDouble _d_energy;
 
     protected CudaMemFloat _d_x_patterns[];
@@ -128,13 +129,6 @@ public class PeakToCorrelationEnergy implements PatternComparator {
         _x = new float[_rows * _columns * 2];
         _y = new float[_rows * _columns * 2];
 
-
-        this.useRealPeak = usePeak;
-        if (!usePeak) {
-            System.out.println("Error: not using real peak no longer supported");
-            System.exit(1);
-        }
-
         //initialize CUFFT
         JCufft.initialize();
         JCufft.setExceptionsEnabled(true);
@@ -195,6 +189,7 @@ public class PeakToCorrelationEnergy implements PatternComparator {
         _d_c = _context.allocFloats(h*w*2);
         _d_peakIndex = _context.allocInts(reducing_thread_blocks);
         _d_peakValues = _context.allocFloats(reducing_thread_blocks);
+        _d_peakValue = _context.allocFloats(1);
         _d_energy = _context.allocDoubles(reducing_thread_blocks);
 
         //JCuda.cudaMemGetInfo(free, total);
@@ -278,6 +273,7 @@ public class PeakToCorrelationEnergy implements PatternComparator {
         findPeak = Pointer.to(
                 Pointer.to(new int[]{h}),
                 Pointer.to(new int[]{w}),
+                Pointer.to(_d_peakValue.getDevicePointer()),
                 Pointer.to(_d_peakValues.getDevicePointer()),
                 Pointer.to(_d_peakIndex.getDevicePointer()),
                 Pointer.to(_d_c.getDevicePointer())
@@ -421,7 +417,7 @@ public class PeakToCorrelationEnergy implements PatternComparator {
         float peak[] = new float[1];
         double energy[] = new double[1];
         
-        _d_peakValues.copyDeviceToHostAsync(peak, 1, _stream1);
+        _d_peakValue.copyDeviceToHostAsync(peak, 1, _stream1);
         
         _d_energy.copyDeviceToHostAsync(energy, 1, _stream1);
         _stream1.synchronize();
@@ -469,7 +465,7 @@ public class PeakToCorrelationEnergy implements PatternComparator {
 
         float peak[] = new float[1];
         double energy[] = new double[1];
-        _d_peakValues.copyDeviceToHostAsync(peak, 1, _stream1);
+        _d_peakValue.copyDeviceToHostAsync(peak, 1, _stream1);
         _d_energy.copyDeviceToHostAsync(energy, 1, _stream1);
         _stream1.synchronize();
         double absPce = (double)(peak[0] * peak[0]) / energy[0];
@@ -553,7 +549,7 @@ public class PeakToCorrelationEnergy implements PatternComparator {
 
         float peak[] = new float[1];
         double energy[] = new double[1];
-        _d_peakValues.copyDeviceToHostAsync(peak, 1, _stream1);
+        _d_peakValue.copyDeviceToHostAsync(peak, 1, _stream1);
         _d_energy.copyDeviceToHostAsync(energy, 1, _stream1);
         _stream1.synchronize();
 
@@ -710,6 +706,7 @@ public class PeakToCorrelationEnergy implements PatternComparator {
         }
         _d_c.free();
         _d_peakIndex.free();
+        _d_peakValue.free();
         _d_peakValues.free();
         _d_energy.free();
         JCufft.cufftDestroy(_plan1);

@@ -35,7 +35,10 @@ import java.nio.channels.FileChannel;
 import java.util.Comparator;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
 
 import java.io.*;
 import jcuda.Pointer;
@@ -60,6 +63,8 @@ public class PrnuExtractGPU {
     String EDGELIST_FILENAME;
     String MATRIX_BIN_FILENAME;
     String MATRIX_TXT_FILENAME;
+    String LINKAGE_FILENAME;
+    String CLUSTERING_FILENAME;
 
     File TESTDATA_FOLDER;
 
@@ -233,7 +238,6 @@ public class PrnuExtractGPU {
                         int gj = j*block_size+jb;
                         //check if the (gi,gj) pair needs to be computed
                         if (gi < numfiles && gj < gi) {
-                            //yPatterns[jb] = patternsGPU[gj];
                             yPatterns[jb] = cache.retrieve(filenames[gj]);
                             predicate[ib][jb] = true;
                             non_null++;
@@ -425,7 +429,7 @@ public class PrnuExtractGPU {
 
         for (int iterator=0; iterator<N-1; iterator++) {
 
-            //find the mots similar pair of clusters
+            //find the most similar pair of clusters
             int[] index_max = findMax(matrix);
             int n1 = index_max[0];
             int n2 = index_max[1];
@@ -500,6 +504,8 @@ public class PrnuExtractGPU {
         this.EDGELIST_FILENAME = "edgelist-" + testcase + ".txt";
         this.MATRIX_BIN_FILENAME = "matrix-" + testcase + ".dat";
         this.MATRIX_TXT_FILENAME = "matrix-" + testcase + ".txt";
+        this.LINKAGE_FILENAME = "linkage-" + testcase + ".txt";
+        this.CLUSTERING_FILENAME = "clustering-" + testcase + ".txt";
 
         //instantiate the PRNUFilterFactory to compile CUDA source files
         this.filterFactory = new PRNUFilterFactory();
@@ -582,16 +588,14 @@ public class PrnuExtractGPU {
         write_matrix_text(cortable);
         write_matrix_binary(cortable);
 
-        //this is where we will call clustering
+        //this is where we compute the hierarchical clustering
         start = System.nanoTime();
         ArrayList<Link> linkage = hierarchical_clustering(cortable, filenames);
         end = System.nanoTime();
         System.out.println("Computing linkage took " + (end-start)/1e9 + " seconds.");
+        write_linkage(linkage);
 
-        for (Link l : linkage) {
-            System.out.println("[" + l.n1 + "," + l.n2 + "," + l.dist + "," + l.size + "]");
-        }
-
+        write_flat_clustering(linkage, filenames);
     }
 
     /**
@@ -729,23 +733,117 @@ public class PrnuExtractGPU {
     void write_matrix_text(double[][] cortable) {
         int numfiles = cortable[0].length;
         try {
-            //System.out.println("PCE Scores:");
             PrintWriter textfile = new PrintWriter(MATRIX_TXT_FILENAME);
             for (int i=0; i<numfiles; i++) {
                 for (int j=0; j<numfiles; j++) {
-                    //System.out.format("%.6f, ", cortable[i][j]);
                     textfile.format("%.6f, ", cortable[i][j]);
                 }
-                //System.out.println();
                 textfile.println();
             }
-            //System.out.println();
             textfile.println();
             textfile.close();
         } catch (Exception ex) {
             System.err.println(ex.getMessage());
         }
     }
+
+    /**
+     *
+     */
+    void write_linkage(ArrayList<Link> linkage) {
+        try {
+            PrintWriter textfile = new PrintWriter(LINKAGE_FILENAME);
+            for (Link l : linkage) {
+                textfile.println("[" + l.n1 + "," + l.n2 + "," + l.dist + "," + l.size + "]");
+            }
+            textfile.println();
+            textfile.close();
+        } catch (Exception ex) {
+            System.err.println(ex.getMessage());
+        }
+    }
+
+    void write_flat_clustering(ArrayList<Link> linkage, String[] filenames) {
+        int N = filenames.length;
+        final double THRESHOLD = 60.0;
+
+        try {
+            PrintWriter textfile = new PrintWriter(CLUSTERING_FILENAME);
+            textfile.println("flat clustering:");
+
+            //create data structures to hold info about clusters
+            int next_cluster_id = N;
+            HashMap<Integer,ArrayList<Integer>> cluster_members = new HashMap<Integer,ArrayList<Integer>>();
+            for (int i=0; i<N; i++) {
+                ArrayList<Integer> l = new ArrayList<Integer>(1);
+                l.add(i);
+                cluster_members.put(i, l);
+            }
+
+            boolean termination = false;
+            Iterator<Link> link_iterator = linkage.iterator();
+            for (int i=0; i<N-1 && termination == false; i++) {
+                Link link = link_iterator.next();
+                //System.out.println("[" + link.n1 + "," + link.n2 + "," + link.dist + "," + link.size + "]");
+
+                if (link.dist < THRESHOLD) {
+                    for (Map.Entry<Integer, ArrayList<Integer>> entry : cluster_members.entrySet()) {
+                        ArrayList<Integer> list = entry.getValue();
+                        Collections.sort(list);
+                        textfile.println(entry.getKey() + "=" + list.toString());
+                    }
+                    termination = true;
+                }
+            
+                if (termination == false) {
+                    //merge the clusters into a new cluster in our bookkeeping data structures
+                    int cluster1 = link.n1;
+                    int cluster2 = link.n2;
+                    ArrayList<Integer> cluster1_members = cluster_members.get(cluster1);
+                    cluster_members.remove(cluster1);
+                    ArrayList<Integer> cluster2_members = cluster_members.get(cluster2);
+                    cluster_members.remove(cluster2);
+                    cluster1_members.addAll(cluster2_members);
+                    cluster_members.put(next_cluster_id, cluster1_members);
+                    next_cluster_id += 1;
+                }
+            }
+
+            textfile.println();
+            textfile.flush();
+            textfile.println("labels:");
+
+            int[] labeling = new int[N];
+            for (int i=0; i<N; i++) {
+                labeling[i] = 0;
+            }
+
+            int label = 1;
+            for (Map.Entry<Integer, ArrayList<Integer>> entry : cluster_members.entrySet()) {
+                //System.out.println("label=" + label + "key=" + entry.getKey() + "value=" + entry.getValue().toString() );
+                for (Integer m: entry.getValue()) {
+                    labeling[m.intValue()] = label;
+                }
+                label += 1;
+            }
+
+            int num_digits = (int)Math.log10(label)+1;
+            String format = "%"+num_digits+"d ";
+            textfile.print("[");
+            for (int l: labeling) {
+                textfile.format(format, l);
+            }
+            textfile.println("]");
+
+            textfile.println();
+            textfile.close();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+
+
 
     /**
      * This method writes a PRNU pattern to a file on disk

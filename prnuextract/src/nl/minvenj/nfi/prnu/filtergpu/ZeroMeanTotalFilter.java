@@ -69,11 +69,11 @@ public class ZeroMeanTotalFilter {
 		final int block_size_y = 16;
 
 		_computeMeanVertically = module.getFunction("computeMeanVertically");
-		_computeMeanVertically.setDim((int)Math.ceil((float)Math.max(w,h) / (float)block_size_x), 1, 1,
+		_computeMeanVertically.setDim((int)Math.ceil(w / (float)block_size_x), 1, 1,
 				block_size_x, block_size_y, 1);
 
 		_computeMeanHorizontally = module.getFunction("computeMeanHorizontally");
-		_computeMeanHorizontally.setDim((int)Math.ceil((float)Math.max(w,h) / (float)block_size_x), 1, 1,
+		_computeMeanHorizontally.setDim(1, (int)Math.ceil(h / (float)block_size_y), 1,
 				block_size_x, block_size_y, 1);
 
 		// Setup the parameter lists for each kernel call 
