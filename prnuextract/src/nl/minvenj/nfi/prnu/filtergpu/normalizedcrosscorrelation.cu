@@ -25,7 +25,7 @@
 
 // Should be a power of two!!
 #ifndef block_size_x
-#define block_size_x 1024
+#define block_size_x 256
 #endif
 
 #ifndef vector
@@ -75,30 +75,27 @@ __global__ void sumSquared(double *output, float *x, int n) {
 
     __shared__ double shmem[block_size_x];
 
-    if (ti < n) {
-
-    	//compute thread-local sums
-    	double sumsq = 0.0;
-    	for (int i=_x; i < n; i+=step_size) {
-            sumsq += x[i] * x[i];
-        }
+    //compute thread-local sums
+    double sumsq = 0.0;
+    for (int i=_x; i < n; i+=step_size) {
+        sumsq += x[i] * x[i];
+    }
   
-        //store local sums in shared memory
-        shmem[ti] = sumsq;
-        __syncthreads();
+    //store local sums in shared memory
+    shmem[ti] = sumsq;
+    __syncthreads();
 
-        //reduce local sums
-        for (unsigned int s=block_size_x/2; s>0; s>>=1) {
-            if (ti < s) {
+    //reduce local sums
+    for (unsigned int s=block_size_x/2; s>0; s>>=1) {
+        if (ti < s) {
             shmem[ti] += shmem[ti + s];
-            }
-            __syncthreads();
         }
+        __syncthreads();
+    }
 
-        //write result
-        if (ti == 0) {
-            output[blockIdx.x] = shmem[0];
-        }
+    //write result
+    if (ti == 0) {
+        output[blockIdx.x] = shmem[0];
     }
 }
  

@@ -116,20 +116,20 @@ public class PrnuExtractGPU {
         int numfiles = filenames.length;
         double cortable[][] = new double[numfiles][numfiles];
         long start, end;
-/*
+
 
         NormalizedCrossCorrelation NCC = new NormalizedCrossCorrelation(
                 this.height,
                 this.width, filterFactory.getContext(),
-                filterFactory.compile("NormalizedCrossCorrelation.cu"), 
-                filterFactory.compile("PeakToCorrelationEnergy.cu"));
+                filterFactory.compile("normalizedcrosscorrelation.cu"), 
+                filterFactory.compile("peaktocorrelationenergy.cu"));
 
         System.out.println("Comparing patterns...");
 
         double[] sumsquares = new double[numfiles];
         for (int i=0; i<numfiles; i++) {
             if (CPU) { 
-                sumsquares[i] = NormalizedCrossCorrelation.sumSquared(cache.retrieve(filenames[i]));
+                //sumsquares[i] = NormalizedCrossCorrelation.sumSquared(cache.retrieve(filenames[i]));
             } else {
                 sumsquares[i] = NCC.sumSquaredGPU(cache.retrieve(filenames[i]));
             }
@@ -145,6 +145,7 @@ public class PrnuExtractGPU {
         System.out.println("Standard deviation of all patterns combined is: " + stddev + " 1/sigma= " + 1.0/stddev);
 
         if (CPU) {
+            /*
             //compare all patterns one-by-one on the CPU
             int total = (numfiles*numfiles)/2 - numfiles/2;
             int c = 0;
@@ -161,7 +162,7 @@ public class PrnuExtractGPU {
                 }
               }
             }
-        
+            */
         } else {
             //do a blocked comparison on the GPU
             cortable = blockedCompare(filenames, NCC.num_patterns, NCC);
@@ -176,7 +177,7 @@ public class PrnuExtractGPU {
 
         }
         NCC.printTime();
-*/
+
         return cortable;
     }
 
@@ -378,7 +379,7 @@ public class PrnuExtractGPU {
      */
     public int[] findMax(double[][] cortable) {
         int N = cortable[0].length;
-        double highest = 0.0;
+        double highest = -1e100;
         int index[] = new int[2];
         for (int i=0; i<N; i++) {
             for (int j=0; j<N; j++) {
@@ -412,6 +413,8 @@ public class PrnuExtractGPU {
         int N = filenames.length;
         double[][] matrix = new double[N][N];
 
+        int c = 0;
+
         //copy cortable into matrix
         for (int i=0; i<N; i++) {
             for (int j=0; j<N; j++) {
@@ -441,6 +444,10 @@ public class PrnuExtractGPU {
             int n1 = index_max[0];
             int n2 = index_max[1];
 
+            if (n1 == n2) {
+                break;
+            }
+
             //merge the clusters into a new cluster in our bookkeeping data structures
             int cluster1 = cluster_ids.get(n1);
             int cluster2 = cluster_ids.get(n2);
@@ -453,7 +460,11 @@ public class PrnuExtractGPU {
             cluster_ids.set(n1, next_cluster_id);
 
             //add to linkage
-            linkage.add(new Link(cluster1, cluster2, matrix[n1][n2], cluster_members.get(next_cluster_id).size()));
+            int new_size = cluster_members.get(next_cluster_id).size();
+            linkage.add(new Link(cluster1, cluster2, matrix[n1][n2], new_size));
+            if (new_size >= N) {
+                break;
+            }
 
             //update the similarity matrix
             for (int i=0; i<N; i++) {
@@ -478,8 +489,8 @@ public class PrnuExtractGPU {
 
             //erase cluster n2
             for (int i=0; i<N; i++) {
-                matrix[n2][i] = 0.0;
-                matrix[i][n2] = 0.0;
+                matrix[n2][i] = -1e200;
+                matrix[i][n2] = -1e200;
             }
 
             //increment next cluster id for next cluster merger

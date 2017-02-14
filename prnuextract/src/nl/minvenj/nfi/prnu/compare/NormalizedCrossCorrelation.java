@@ -74,13 +74,14 @@ public class NormalizedCrossCorrelation implements PatternComparator {
 
         //setup CUDA functions
         JCudaDriver.setExceptionsEnabled(true);
-        int threads = 1024;
-        int reducing_thread_blocks = 1; //optimally this equals the number of SMs in the GPU
+        int threads = 256;
+        int reducing_thread_blocks = 1024; //optimally this equals the number of SMs in the GPU
 
         //get number of SMs
-        int num_sm =_context.getDevice().getComputeModules();
-        System.out.println("detected " + num_sm + " SMs on GPU");
-        reducing_thread_blocks = num_sm;
+        //int num_sm =_context.getDevice().getComputeModules();
+        //System.out.println("detected " + num_sm + " SMs on GPU");
+        //reducing_thread_blocks = num_sm;
+    
 
         _sumSquared = module.getFunction("sumSquared");
         _sumSquared.setDim(   reducing_thread_blocks, 1, 1,
@@ -140,11 +141,6 @@ public class NormalizedCrossCorrelation implements PatternComparator {
 
     }
 
-    public double[][] compareGPU(Pointer[] xPatterns, Pointer[] yPatterns, boolean[][] predicate) {
-
-        return null;
-
-    }
     /**
      * This method performs an array of comparisons between patterns
      * It computes the NCC scores between all patterns in xPatterns and those in yPatterns
@@ -154,7 +150,7 @@ public class NormalizedCrossCorrelation implements PatternComparator {
      * @param predicate     a boolean matrix denoting which comparsions are to be made and which not
      * @returns             a double matrix with all NCC scores from comparing all patterns in x with all in y
      */
-    public double[][] compareGPU(float[][] xPatterns, float[][] yPatterns, boolean[][] predicate) {
+    public double[][] compareGPU(Pointer[] xPatterns, Pointer[] yPatterns, boolean[][] predicate) {
 
         double result[][] = new double[num_patterns][num_patterns];
         int pattern_length = 0;
@@ -163,11 +159,10 @@ public class NormalizedCrossCorrelation implements PatternComparator {
         //copy inputs to the GPU (host to device)
         for (int i=0; i < num_patterns; i++) {
             if (xPatterns[i] != null) {
-                _d_x_patterns[i].copyHostToDeviceAsync(xPatterns[i], _stream);
-                pattern_length = xPatterns[i].length;
+                _d_x_patterns[i].copyHostToDeviceAsync(xPatterns[i], h*w*Sizeof.FLOAT, _stream);
             }
             if (yPatterns[i] != null) {
-                _d_y_patterns[i].copyHostToDeviceAsync(yPatterns[i], _stream);
+                _d_y_patterns[i].copyHostToDeviceAsync(yPatterns[i], h*w*Sizeof.FLOAT, _stream);
             }
         }
 
@@ -206,7 +201,7 @@ public class NormalizedCrossCorrelation implements PatternComparator {
 
         double gpu_time = (System.nanoTime() - start)/1e6;
         total_kernel_time += gpu_time; // ms
-        total_bandwidth += ((long)called*(long)pattern_length*(long)4*(long)2)/1e9 ; //GB
+        total_bandwidth += ((long)called*(long)w*h*(long)4*(long)2)/1e9 ; //GB
         total_called += called;
 
         return result;
@@ -255,9 +250,9 @@ public class NormalizedCrossCorrelation implements PatternComparator {
      * @param pattern   a float array containing the pattern
      * @returns         the sum of squares as a double
      */
-    public double sumSquaredGPU(float[] pattern) {
+    public double sumSquaredGPU(Pointer pattern) {
         //copy input to GPU
-        _d_input1.copyHostToDeviceAsync(pattern, _stream);
+        _d_input1.copyHostToDeviceAsync(pattern, h*w*Sizeof.FLOAT, _stream);
 
         //_stream.synchronize();
         //long start = System.nanoTime();
