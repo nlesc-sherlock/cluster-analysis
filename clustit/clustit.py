@@ -110,7 +110,7 @@ if __name__ == "__main__":
     elif args.clustering_algorithm == 'spectral':
         clustering = spectral(edgelist=edgelist, distance_matrix=matrix,n_clusters=len(matrix)-1)
     elif args.clustering_algorithm == 'affinity':
-        clustering = affinity(edgelist=edgelist, distance_matrix=matrix)
+        clustering = affinity(edgelist=edgelist, distance_matrix=matrix, n_clusters=(len(matrix) - 1))
 
 
     numpy.set_printoptions(threshold=numpy.nan)
