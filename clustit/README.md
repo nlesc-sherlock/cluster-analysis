@@ -27,7 +27,7 @@ specify either:
 
 positional arguments:
   clustering_algorithm  name of the clustering algorithm to use
-                        choose from: hierarchical, dbscan, hdbscan, agglomerative, spectral
+                        choose from: hierarchical, dbscan, hdbscan, spectral
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -41,7 +41,6 @@ optional arguments:
 Example:
 ./clustit.py -m ../data/pentax/matrix-pentax-pce.dat --convert=200 hierarchical
 ./clustit.py -e ../data/pentax/edgelist-pentax-pce.txt --convert=200 dbscan
-./clustit.py -e ../data/pentax/edgelist-pentax-pce.txt --convert=200 agglomarative
 ```
 
 Contributing to clustit
