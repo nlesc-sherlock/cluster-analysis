@@ -6,6 +6,7 @@ import sys
 import clustit.utils as utils
 import scipy.cluster.hierarchy as sch
 from sklearn.cluster.hierarchical import _TREE_BUILDERS
+import hdbscan
 #from clustit.plot import plot_dendrogram
 
 
@@ -36,6 +37,14 @@ def dbscan(edgelist=None, distance_matrix=None, threshold=None):
     core_samples, labels = sklearn.cluster.dbscan(distance_matrix, metric='precomputed',
                                 algorithm='brute', eps=threshold, min_samples=2)
     return labels
+
+def hierarchical_dbscan(edgelist=None, distance_matrix=None):
+    """ cluster using the Hierarchical DBSCAN algorithm """
+    if edgelist is not None:
+        distance_matrix = utils.edgelist_to_distance_matrix(edgelist)
+    hdbscan_clusterer = hdbscan.HDBSCAN(metric="precomputed", min_samples=2)
+    hdbscan_clusterer.fit(distance_matrix)
+    return hdbscan_clusterer.labels_
 
 def agglomerative_clustering(edgelist=None, distance_matrix=None, num_clusters=4, method='complete', metric='precomputed'):
     """ computes an agglomerative clustering as one of the hierarchical clustering methods """
