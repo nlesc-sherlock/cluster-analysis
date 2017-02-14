@@ -27,7 +27,7 @@ specify either:
 
 positional arguments:
   clustering_algorithm  name of the clustering algorithm to use
-                        choose from: hierarchical, dbscan, hdbscan, spectral
+                        choose from: hierarchical, dbscan, hdbscan, spectral, affinity
 
 optional arguments:
   -h, --help            show this help message and exit
