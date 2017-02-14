@@ -192,8 +192,6 @@ public class ZeroMeanTotalFilter {
 		//apply the horizontal filter again to the transposed values
 		_computeMeanHorizontally.launch(_stream, computeMeanHorizontally);
 
-        //check
-        JCudaDriver.cuCtxSynchronize();
 	}
 	
 	/**

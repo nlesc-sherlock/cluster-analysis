@@ -195,7 +195,6 @@ fp = false_positives(clusters, ground_truth_labels, verbose=True)
 
 print(filelist[256], filelist[568])
 
-exit()
 
 num_clusters = []
 thresholds = []
@@ -236,16 +235,18 @@ def make_dual_plot(title, x_series, x_label, y1_series, y1_label, y2_series, y2_
     ax2.tick_params('y', colors='g')
     ax2.set_ylim([0,80])
 
+    f.set_size_inches(10, 6, forward=True)
     f.tight_layout()
+
     f.savefig("plot.png", dpi=300)
     f.savefig("plot.eps", format="eps")
 
 
 make_dual_plot("Varying threshold for pentax dataset", thresholds, "threshold", fps, "FPR (%)", fns, "FNR (%)")
 
-#pyplot.show()
+pyplot.show()
 
-#exit()
+exit()
 
 threshold = 60.0
 

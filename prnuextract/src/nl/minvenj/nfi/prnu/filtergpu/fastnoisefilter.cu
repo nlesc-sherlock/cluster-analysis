@@ -40,11 +40,13 @@
 
  
 //function interfaces to prevent C++ garbling the kernel names
-extern "C" {
-    __global__ void convolveVertically(int h, int w, float* output, float* input);
+
+/*    __global__ void convolveVertically(int h, int w, float* output, float* input);
     __global__ void convolveHorizontally(int h, int w, float* output, float* input);
     __global__ void normalize(int h, int w, float* dxs, float* dys);
     __global__ void zeroMem(int h, int w, float* array);
+*/
+extern "C" {
     __global__ void normalized_gradient(int h, int w, float *output, float *input);
     __global__ void gradient(int h, int w, float *output, float *input);
 }
@@ -53,7 +55,7 @@ extern "C" {
  * Vertically computes a local gradient for each pixel in an image.
  * Takes forward differences for first and last row.
  * Takes centered differences for interior points.
- */
+ 
 __global__ void convolveVertically(int h, int w, float* output, float* input) {
     int i = threadIdx.y + blockIdx.y * block_size_y;
     int j = threadIdx.x + blockIdx.x * block_size_x;
@@ -81,7 +83,7 @@ __global__ void convolveVertically(int h, int w, float* output, float* input) {
  * Horizontally computes a local gradient for each pixel in an image.
  * Takes forward differences for first and last element.
  * Takes centered differences for interior points.
- */
+
 __global__ void convolveHorizontally(int h, int w, float* output, float* input) {
     int i = threadIdx.y + blockIdx.y * block_size_y;
     int j = threadIdx.x + blockIdx.x * block_size_x;
@@ -107,7 +109,7 @@ __global__ void convolveHorizontally(int h, int w, float* output, float* input) 
 
 /**
  * Normalizes gradient values in place.
- */
+
 __global__ void normalize(int h, int w, float* dxs, float* dys) {
     int i = threadIdx.y + blockIdx.y * block_size_y;
     int j = threadIdx.x + blockIdx.x * block_size_x;
@@ -130,7 +132,7 @@ __global__ void normalize(int h, int w, float* dxs, float* dys) {
 
 /**
  * Helper kernel to zero an array.
- */
+
 __global__ void zeroMem(int h, int w, float* array) {
     int i = threadIdx.y + blockIdx.y * block_size_y;
     int j = threadIdx.x + blockIdx.x * block_size_x;
@@ -140,7 +142,7 @@ __global__ void zeroMem(int h, int w, float* array) {
     }
 }
 
-
+*/
 
 
 /*

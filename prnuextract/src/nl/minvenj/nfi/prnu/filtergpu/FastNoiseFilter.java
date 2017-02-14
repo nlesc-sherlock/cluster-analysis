@@ -222,7 +222,6 @@ public final class FastNoiseFilter {
 
 		_gradient.launch(_stream, gradient);
 
-		JCudaDriver.cuCtxSynchronize();
 	}
 
 	/**
