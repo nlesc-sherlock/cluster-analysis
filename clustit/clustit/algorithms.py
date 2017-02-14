@@ -7,7 +7,7 @@ import clustit.utils as utils
 import scipy.cluster.hierarchy as sch
 from sklearn.cluster.hierarchical import _TREE_BUILDERS
 #from clustit.plot import plot_dendrogram
-
+import scipy
 
 import sklearn.cluster
 from builtins import input
@@ -34,18 +34,18 @@ def dbscan(edgelist=None, distance_matrix=None, threshold=None):
     threshold = threshold or 2.8
 
     core_samples, labels = sklearn.cluster.dbscan(distance_matrix, metric='precomputed',
-                                algorithm='brute', eps=threshold, min_samples=2)
+                                algorithm='brute', eps=threshold, min_samples=3)
     return labels
 
 
-def spectral(edgelist=None, distance_matrix=None):
+def spectral(edgelist=None, distance_matrix=None,n_clusters=10):
     """ cluster using spectral clustering """
 
     if edgelist is not None:
         distance_matrix, names = utils.edgelist_to_distance_matrix(edgelist)
 
 
-    sc = sklearn.cluster.SpectralClustering(n_clusters=10, affinity='precomputed')
+    sc = sklearn.cluster.SpectralClustering(n_clusters, affinity='precomputed')
     labels = sc.fit_predict(distance_matrix)
 
     return labels
