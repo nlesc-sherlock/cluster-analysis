@@ -95,9 +95,7 @@ public class PRNUFilter {
 		zeroMeanTotalFilter.applyGPU();
 		wienerFilter.applyGPU();
 		
-        //allocate pinned host memory
         long nbytes = w*h*jcuda.Sizeof.FLOAT;
-
 		d_input.copyDeviceToHostAsync(hostPointer, nbytes, stream);
 
 		stream.synchronize();
@@ -105,18 +103,49 @@ public class PRNUFilter {
 		return hostPointer;
 	}
 
-	public float[] apply(BufferedImage image) {
-		grayscaleFilter.applyGPU(image);
+    public float[] apply(BufferedImage image) {
+        grayscaleFilter.applyGPU(image);
 
-		fastNoiseFilter.applyGPU();
-		zeroMeanTotalFilter.applyGPU();
-		wienerFilter.applyGPU();
-		
-		float[] pixelsFloat = new float[w*h];
-		d_input.copyDeviceToHostAsync(pixelsFloat, pixelsFloat.length, stream);
+        fastNoiseFilter.applyGPU();
+        zeroMeanTotalFilter.applyGPU();
+        wienerFilter.applyGPU();
+        
+        float[] pixelsFloat = new float[w*h];
+        d_input.copyDeviceToHostAsync(pixelsFloat, pixelsFloat.length, stream);
 
-		stream.synchronize();
+        stream.synchronize();
+        
+        return pixelsFloat;
+    }
+
+	public float[] applyCPU(BufferedImage image) {
+
+        long start = System.nanoTime();
+		float[] pixelsFloat = grayscaleFilter.apply1D(image);
+        long end = System.nanoTime();
+        double grayscale = (end-start) / 1e6;
+        System.out.println("Grayscale Filter took: " + grayscale + " ms.");
+
+        start = System.nanoTime();
+		pixelsFloat = fastNoiseFilter.apply1D(pixelsFloat);
+        end = System.nanoTime();
+        double fastnoise = (end-start) / 1e6;
+        System.out.println("Fast Noise Filter took: " + fastnoise + " ms.");
+
+        start = System.nanoTime();
+		pixelsFloat = zeroMeanTotalFilter.apply1D(pixelsFloat);
+        end = System.nanoTime();
+        double zeromean = (end-start) / 1e6;
+        System.out.println("Zero Mean took: " + zeromean + " ms.");
+
+        start = System.nanoTime();
+		pixelsFloat = wienerFilter.apply1D(pixelsFloat);
+        end = System.nanoTime();
+        double wiener = (end-start) / 1e6;
+        System.out.println("Wiener Filter took: " + wiener + " ms.");
 		
+        System.out.println("Total: " + (grayscale+fastnoise+zeromean+wiener) + " ms.");
+
 		return pixelsFloat;
 	}
 

@@ -65,6 +65,7 @@ extern "C" {
     __global__ void computeVarianceEstimates_naive(int h, int w, float* varest, float* input);
     __global__ void normalizeToReal(int h, int w, float* output, float* complex);
     __global__ void normalize(int h, int w, float* output, float* complex);
+    __global__ void sumFloats(float *output, float *input, int n);
 }
 
 
@@ -299,7 +300,7 @@ __global__ void computeVarianceEstimates_naive(int h, int w, float* varest, floa
 
 #ifndef grid_size_x //hack to see if the Kernel Tuner is being used
  #undef block_size_x
- #define block_size_x 256
+ #define block_size_x 128
 #endif
 __global__ void computeVarianceZeroMean(int n, float *output, float *input) {
 
@@ -334,3 +335,40 @@ __global__ void computeVarianceZeroMean(int n, float *output, float *input) {
     }
 
 }
+
+/*
+ * Simple CUDA Helper function to reduce the output of a
+ * reduction kernel with multiple thread blocks to a single value
+ * 
+ * This function performs a sum of an array of floats
+ *
+ * This function is to be called with only a single thread block
+ */
+__global__ void sumFloats(float *output, float *input, int n) {
+    int ti = threadIdx.x;
+    __shared__ float shmem[block_size_x];
+
+    //compute thread-local sums
+    float sum = 0.0f;
+    for (int i=ti; i < n; i+=block_size_x) {
+        sum += input[i];
+    }
+
+    //store local sums in shared memory
+    shmem[ti] = sum;
+    __syncthreads();
+
+    //reduce local sums
+    for (unsigned int s=block_size_x/2; s>0; s>>=1) {
+        if (ti < s) {
+            shmem[ti] += shmem[ti + s];
+        }
+    __syncthreads();
+    }
+
+    //write result
+    if (ti == 0) {
+        output[0] = shmem[0];
+    }
+}
+

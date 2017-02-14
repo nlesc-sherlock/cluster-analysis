@@ -42,6 +42,7 @@ import java.util.Iterator;
 
 import java.io.*;
 import jcuda.Pointer;
+import jcuda.driver.JCudaDriver;
 
 /**
  * PrnuExtractGPU is an application for extracting and comparing PRNU filters.
@@ -307,6 +308,8 @@ public class PrnuExtractGPU {
 
 
     public void run_single(String input, String output) {
+        JCudaDriver.cuProfilerStart();
+
         this.filterFactory = new PRNUFilterFactory();
 
         BufferedImage image = null;
@@ -317,7 +320,11 @@ public class PrnuExtractGPU {
             System.exit(1);
         }
         this.filter = filterFactory.createPRNUFilter(image.getHeight(), image.getWidth());        
+        //float[] pattern = filter.apply(image);
         float[] pattern = filter.apply(image);
+
+        JCudaDriver.cuCtxSynchronize();
+        JCudaDriver.cuProfilerStop();
 
         write_float_array_to_file(pattern, output, image.getHeight()*image.getWidth());
     }

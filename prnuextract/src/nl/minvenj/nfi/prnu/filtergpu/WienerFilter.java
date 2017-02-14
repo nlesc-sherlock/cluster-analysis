@@ -42,6 +42,7 @@ public class WienerFilter {
 	protected CudaFunction _computeSquaredMagnitudes;
 	protected CudaFunction _computeVarianceEstimates;
 	protected CudaFunction _computeVarianceZeroMean;
+	protected CudaFunction _sumFloats;
 	protected CudaFunction _scaleWithVariances;
 	protected CudaFunction _normalizeToReal;
 	protected CudaFunction _normalizeComplex;
@@ -61,6 +62,7 @@ public class WienerFilter {
 	protected Pointer sqmag;
 	protected Pointer varest;
 	protected Pointer variancep;
+	protected Pointer sumfloats;
 	protected Pointer scale;
 	protected Pointer normalize;
 	protected Pointer normalizeComplex;
@@ -110,9 +112,13 @@ public class WienerFilter {
 		_computeVarianceEstimates.setDim(	(int)Math.ceil((float)w / (float)threads_x), (int)Math.ceil((float)h / (float)threads_y), 1,
 				threads_x, threads_y, 1);
 		
-		final int threads = 256;
+		final int threads = 128;
+        final int nblocks = 1024;
 		_computeVarianceZeroMean = module.getFunction("computeVarianceZeroMean");
-		_computeVarianceZeroMean.setDim(	1, 1, 1,
+		_computeVarianceZeroMean.setDim(	nblocks, 1, 1,
+				threads, 1, 1);
+		_sumFloats = module.getFunction("sumFloats");
+		_sumFloats.setDim(	1, 1, 1,
 				threads, 1, 1);
 
 		_scaleWithVariances = module.getFunction("scaleWithVariances");
@@ -131,7 +137,7 @@ public class WienerFilter {
 		_d_comp = _context.allocFloats(h*w*2);
 		_d_sqmag = _context.allocFloats(h*w);
 		_d_varest = _context.allocFloats(h*w);
-		_d_variance = _context.allocFloats(1);
+		_d_variance = _context.allocFloats(nblocks);
 
 		//create CUFFT plan and associate with stream
 		int res;
@@ -173,6 +179,11 @@ public class WienerFilter {
 				Pointer.to(new int[]{n}),
 				Pointer.to(_d_variance.getDevicePointer()),
 				Pointer.to(_d_input.getDevicePointer())
+				);
+		sumfloats = Pointer.to(
+				Pointer.to(_d_variance.getDevicePointer()),
+				Pointer.to(_d_variance.getDevicePointer()),
+				Pointer.to(new int[]{nblocks})
 				);
 		scale = Pointer.to(
 				Pointer.to(new int[]{h}),
@@ -320,6 +331,7 @@ public class WienerFilter {
 
 		//compute global variance
 		_computeVarianceZeroMean.launch(_stream, variancep);
+		_sumFloats.launch(_stream, sumfloats);
 
 		//scale the frequencies using global and local variance
 		_scaleWithVariances.launch(_stream, scale);
@@ -331,8 +343,6 @@ public class WienerFilter {
 		//normalize the values and convert from complex to real
 		_normalizeToReal.launch(_stream, normalize);
 
-		//for measuring time
-		JCudaDriver.cuCtxSynchronize();
 	}
 
 	/**

@@ -88,7 +88,7 @@ public class PRNUFilterFactory {
         //read the CUDA source file into a string
 		String source = "";
 		try {
-			source = IOUtils.toString(FastNoiseFilter.class.getResource(filename));
+			source = IOUtils.toString(PRNUFilterFactory.class.getResource(filename));
 		} catch (Exception e) {
 			e.printStackTrace();
 			System.exit(1);
