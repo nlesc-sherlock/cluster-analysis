@@ -43,8 +43,8 @@ def hierarchical_dbscan(edgelist=None, distance_matrix=None):
     if edgelist is not None:
         distance_matrix = utils.edgelist_to_distance_matrix(edgelist)
     hdbscan_clusterer = hdbscan.HDBSCAN(metric="precomputed", min_samples=2)
-    hdbscan_clusterer.fit(distance_matrix)
-    return hdbscan_clusterer.labels_
+    labels = hdbscan_clusterer.fit_predict(distance_matrix)
+    return labels
 
 def spectral(edgelist=None, distance_matrix=None):
     """ cluster using spectral clustering """
