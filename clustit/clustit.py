@@ -9,9 +9,9 @@ Dependencies
  * Python 2.7 or Python 3.5
  * Scipy
  * scikit-learn
- * scikit-learn-contrib hdbscan
+ * hdbscan (https://github.com/scikit-learn-contrib/hdbscan)
  * Pandas
- * LargeVis
+ * LargeVis (https://github.com/lferry007/LargeVis)
 
 Example usage
 -------------
