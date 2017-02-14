@@ -57,3 +57,11 @@ def spectral(edgelist=None, distance_matrix=None,n_clusters=10):
     labels = sc.fit_predict(distance_matrix)
 
     return labels
+
+def affinity(edgelist=None, distance_matrix=None, n_clusters=10):
+    """ cluster using the affinity propagation algorithm """
+    if edgelist is not None:
+        distance_matrix = utils.edgelist_to_distance_matrix(edgelist)
+    affinity_clusterer = sklearn.cluster.AffinityPropagation(affinity="precomputed", preference=n_clusters)
+    labels = affinity_clusterer.fit_predict(distance_matrix)
+    return labels

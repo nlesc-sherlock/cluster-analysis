@@ -27,7 +27,7 @@ specify either:
 
 positional arguments:
   clustering_algorithm  name of the clustering algorithm to use
-                        choose from: hierarchical, dbscan, hdbscan, spectral
+                        choose from: hierarchical, dbscan, hdbscan, spectral, affinity
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -73,7 +73,7 @@ def parse_arguments():
     mode.add_argument("-m", "--matrix", help="name of distance matrix file", metavar='matrix')
     parser.add_argument("-n", "--names", help="filename storing a list of names for the items to be clustered, in case distance matrix is used", metavar='names')
     parser.add_argument("-c", "--convert", help="convert similarity to distance with specified a cut-off value", metavar='convert')
-    parser.add_argument("clustering_algorithm", help="name of the clustering algorithm to use", choices=["hierarchical", "dbscan", "hdbscan", "spectral"], metavar='clustering_algorithm')
+    parser.add_argument("clustering_algorithm", help="name of the clustering algorithm to use", choices=["hierarchical", "dbscan", "hdbscan", "spectral", "affinity"], metavar='clustering_algorithm')
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -109,6 +109,8 @@ if __name__ == "__main__":
         clustering = hierarchical_dbscan(edgelist=edgelist, distance_matrix=matrix)
     elif args.clustering_algorithm == 'spectral':
         clustering = spectral(edgelist=edgelist, distance_matrix=matrix,n_clusters=len(matrix)-1)
+    elif args.clustering_algorithm == 'affinity':
+        clustering = affinity(edgelist=edgelist, distance_matrix=matrix, n_clusters=(len(matrix) - 1))
 
 
     numpy.set_printoptions(threshold=numpy.nan)
