@@ -6,8 +6,9 @@ import sys
 import clustit.utils as utils
 import scipy.cluster.hierarchy as sch
 from sklearn.cluster.hierarchical import _TREE_BUILDERS
+import hdbscan
 #from clustit.plot import plot_dendrogram
-
+import scipy
 
 import sklearn.cluster
 from builtins import input
@@ -34,66 +35,25 @@ def dbscan(edgelist=None, distance_matrix=None, threshold=None):
     threshold = threshold or 2.8
 
     core_samples, labels = sklearn.cluster.dbscan(distance_matrix, metric='precomputed',
-                                algorithm='brute', eps=threshold, min_samples=2)
+                                algorithm='brute', eps=threshold, min_samples=3)
     return labels
 
-def agglomerative_clustering(edgelist=None, distance_matrix=None, num_clusters=4, method='complete', metric='precomputed'):
-    """ computes an agglomerative clustering as one of the hierarchical clustering methods """
+def hierarchical_dbscan(edgelist=None, distance_matrix=None):
+    """ cluster using the Hierarchical DBSCAN algorithm """
     if edgelist is not None:
-        distance_matrix, names = utils.edgelist_to_distance_matrix(edgelist)
+        distance_matrix = utils.edgelist_to_distance_matrix(edgelist)
+    hdbscan_clusterer = hdbscan.HDBSCAN(metric="precomputed", min_samples=2)
+    hdbscan_clusterer.fit(distance_matrix)
+    return hdbscan_clusterer.labels_
 
-    num_clusters=int(input("Enter the number of clusters: "))
-    assert isinstance(num_clusters, int)
-
-
-    method_options = list(_TREE_BUILDERS.keys())
-    print('The list of available methods:', method_options, file=sys.stdout)
-    in_method = input('Input the method name:')
-    assert isinstance(in_method, str)    # native str on Py2 and Py3
-    method = in_method.strip()
-
-    if method == 'ward':
-        metric = 'euclidean'
-
-
-    else:
-
-        metric_options = ['precomputed', 'cosine', 'euclidean', 'cityblock']
-        print('The list of available metrics:', metric_options , file=sys.stdout)
-
-        in_metric = input('Input the metric name:')
-        assert isinstance(in_metric, str)    # native str on Py2 and Py3
-        metric = in_metric.strip()
-
-    #tree_cutoff_options = [True, False, 'auto']
-    tree_cutoff_options = []
-
-
-
-    #for method in method_options:
-    #    for metric in metric_options:
-            #for tree_cutoff in tree_cutoff_options:
-
-    model = sklearn.cluster.AgglomerativeClustering(linkage=method, affinity=metric,
-                                                             n_clusters=num_clusters, connectivity=distance_matrix, compute_full_tree='auto')
-    model = model.fit(distance_matrix)
-    labels = model.labels_
-
-    print(method, metric)
-    #plot_dendrogram(model, labels=labels)
-
-
-    return labels
-
-
-def spectral(edgelist=None, distance_matrix=None):
+def spectral(edgelist=None, distance_matrix=None,n_clusters=10):
     """ cluster using spectral clustering """
 
     if edgelist is not None:
         distance_matrix, names = utils.edgelist_to_distance_matrix(edgelist)
 
 
-    sc = sklearn.cluster.SpectralClustering(n_clusters=10, affinity='precomputed')
+    sc = sklearn.cluster.SpectralClustering(n_clusters, affinity='precomputed')
     labels = sc.fit_predict(distance_matrix)
 
     return labels
