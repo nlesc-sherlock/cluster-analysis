@@ -9,6 +9,9 @@ Dependencies
  * Python 2.7 or Python 3.5
  * Scipy
  * scikit-learn
+ * hdbscan (https://github.com/scikit-learn-contrib/hdbscan)
+ * Pandas
+ * LargeVis (https://github.com/lferry007/LargeVis)
 
 Example usage
 -------------
@@ -24,7 +27,7 @@ specify either:
 
 positional arguments:
   clustering_algorithm  name of the clustering algorithm to use
-                        choose from: hierarchical, dbscan
+                        choose from: hierarchical, dbscan, hdbscan, spectral
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -38,7 +41,6 @@ optional arguments:
 Examples:
 ./clustit.py -m ../data/pentax/matrix-pentax-pce.dat --convert=200 hierarchical
 ./clustit.py -e ../data/pentax/edgelist-pentax-pce.txt --convert=200 dbscan
-./clustit.py -e ../data/pentax/edgelist-pentax-pce.txt --convert=200 agglomerative
 ```
 
 Copyright and License
@@ -71,7 +73,7 @@ def parse_arguments():
     mode.add_argument("-m", "--matrix", help="name of distance matrix file", metavar='matrix')
     parser.add_argument("-n", "--names", help="filename storing a list of names for the items to be clustered, in case distance matrix is used", metavar='names')
     parser.add_argument("-c", "--convert", help="convert similarity to distance with specified a cut-off value", metavar='convert')
-    parser.add_argument("clustering_algorithm", help="name of the clustering algorithm to use", choices=["hierarchical", "dbscan", "spectral", "agglomerative"], metavar='clustering_algorithm')
+    parser.add_argument("clustering_algorithm", help="name of the clustering algorithm to use", choices=["hierarchical", "dbscan", "hdbscan", "spectral"], metavar='clustering_algorithm')
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -103,10 +105,10 @@ if __name__ == "__main__":
         clustering = hierarchical_clustering(edgelist=edgelist, distance_matrix=matrix)
     elif args.clustering_algorithm == 'dbscan':
         clustering = dbscan(edgelist=edgelist, distance_matrix=matrix)
+    elif args.clustering_algorithm == 'hdbscan':
+        clustering = hierarchical_dbscan(edgelist=edgelist, distance_matrix=matrix)
     elif args.clustering_algorithm == 'spectral':
         clustering = spectral(edgelist=edgelist, distance_matrix=matrix)
-    elif args.clustering_algorithm == 'agglomerative':
-        clustering = agglomerative_clustering(edgelist=edgelist, distance_matrix=matrix)
 
     numpy.set_printoptions(threshold=numpy.nan)
     print(clustering)
