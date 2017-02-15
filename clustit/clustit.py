@@ -27,7 +27,7 @@ specify either:
 
 positional arguments:
   clustering_algorithm  name of the clustering algorithm to use
-                        choose from: hierarchical, dbscan, hdbscan, spectral, affinity
+                        choose from: hierarchical, dbscan, hdbscan, spectral, affinity, largevis
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -73,7 +73,7 @@ def parse_arguments():
     mode.add_argument("-m", "--matrix", help="name of distance matrix file", metavar='matrix')
     parser.add_argument("-n", "--names", help="filename storing a list of names for the items to be clustered, in case distance matrix is used", metavar='names')
     parser.add_argument("-c", "--convert", help="convert similarity to distance with specified a cut-off value", metavar='convert')
-    parser.add_argument("clustering_algorithm", help="name of the clustering algorithm to use", choices=["hierarchical", "dbscan", "hdbscan", "spectral", "affinity"], metavar='clustering_algorithm')
+    parser.add_argument("clustering_algorithm", help="name of the clustering algorithm to use", choices=["hierarchical", "dbscan", "hdbscan", "spectral", "affinity","largevis"], metavar='clustering_algorithm')
     return parser.parse_args()
 
 if __name__ == "__main__":
