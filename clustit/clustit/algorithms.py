@@ -1,7 +1,6 @@
 """ module containing the implementations of clustering algorithms used in clustit """
 
 from __future__ import print_function
-import sys
 
 import clustit.utils as utils
 import scipy.cluster.hierarchy as sch
@@ -15,56 +14,49 @@ import sklearn.cluster
 from builtins import input
 
 
-def hierarchical_clustering(edgelist=None, distance_matrix=None,
-                            names=None, method='complete', threshold=None):
+def hierarchical_clustering(similarities=None, method='complete', threshold=None, distance_cutoff=200):
     """ create a flat clustering based on hierarchical clustering methods and a threshold """
-    if edgelist is not None:
-        distance_matrix, names = utils.edgelist_to_distance_matrix(edgelist)
-
+    if similarities is None:
+        return None
+    distance_matrix = utils.similarity_to_distance(similarities, distance_cutoff)
     linkage = sch.linkage(distance_matrix, method=method)
-
-    threshold = threshold or 0.7*linkage[:,2].max()
+    threshold = threshold or 0.7*linkage[:, 2].max()
     labels = sch.fcluster(linkage, threshold, criterion='distance')
-
     return labels
 
-def dbscan(edgelist=None, distance_matrix=None, threshold=None):
+def dbscan(similarities=None, threshold=None, distance_cutoff=200):
     """ cluster using DBSCAN algorithm """
-    if edgelist is not None:
-        distance_matrix, names = utils.edgelist_to_distance_matrix(edgelist)
-
+    if similarities is None:
+        return None
+    distance_matrix = utils.similarity_to_distance(similarities, distance_cutoff)
     threshold = threshold or 2.8
-
-    core_samples, labels = sklearn.cluster.dbscan(distance_matrix, metric='precomputed',
-                                algorithm='brute', eps=threshold, min_samples=3)
+    dbscan_clusterer = sklearn.cluster.DBSCAN(eps=threshold, min_samples=3, metric="precomputed", algorithm="brute")
+    labels = dbscan_clusterer.fit_predict(distance_matrix)
     return labels
 
-def hierarchical_dbscan(edgelist=None, distance_matrix=None):
+def hierarchical_dbscan(similarities=None, distance_cutoff=200):
     """ cluster using the Hierarchical DBSCAN algorithm """
-    if edgelist is not None:
-        distance_matrix = utils.edgelist_to_distance_matrix(edgelist)
-    hdbscan_clusterer = hdbscan.HDBSCAN(metric="precomputed", min_samples=2)
+    if similarities is None:
+        return None
+    distance_matrix = utils.similarity_to_distance(similarities, distance_cutoff)
+    hdbscan_clusterer = hdbscan.HDBSCAN(metric="precomputed", min_samples=3)
     labels = hdbscan_clusterer.fit_predict(distance_matrix)
     return labels
 
-def spectral(edgelist=None, distance_matrix=None,n_clusters=10):
+def spectral(similarities=None, n_clusters=10):
     """ cluster using spectral clustering """
-
-    if edgelist is not None:
-        distance_matrix, names = utils.edgelist_to_distance_matrix(edgelist)
-
-
-    sc = sklearn.cluster.SpectralClustering(n_clusters, affinity='precomputed')
-    labels = sc.fit_predict(distance_matrix)
-
+    if similarities is None:
+        return None
+    spectral_clusterer = sklearn.cluster.SpectralClustering(affinity="precomputed", n_clusters=n_clusters)
+    labels = spectral_clusterer.fit_predict(similarities)
     return labels
 
-def affinity(edgelist=None, distance_matrix=None, n_clusters=10):
+def affinity(similarities=None):
     """ cluster using the affinity propagation algorithm """
-    if edgelist is not None:
-        distance_matrix = utils.edgelist_to_distance_matrix(edgelist)
-    affinity_clusterer = sklearn.cluster.AffinityPropagation(affinity="precomputed", preference=n_clusters)
-    labels = affinity_clusterer.fit_predict(distance_matrix)
+    if similarities is None:
+        return None
+    affinity_clusterer = sklearn.cluster.AffinityPropagation(affinity="euclidean")
+    labels = affinity_clusterer.fit_predict(similarities)
     return labels
 
 def kmeans(embedded_space=None, n_clusters=10):
