@@ -9,6 +9,7 @@ from sklearn.cluster.hierarchical import _TREE_BUILDERS
 import hdbscan
 #from clustit.plot import plot_dendrogram
 import scipy
+import pandas
 
 import sklearn.cluster
 from builtins import input
@@ -64,4 +65,12 @@ def affinity(edgelist=None, distance_matrix=None, n_clusters=10):
         distance_matrix = utils.edgelist_to_distance_matrix(edgelist)
     affinity_clusterer = sklearn.cluster.AffinityPropagation(affinity="precomputed", preference=n_clusters)
     labels = affinity_clusterer.fit_predict(distance_matrix)
+    return labels
+
+def kmeans(embedded_space, n_clusters=10):
+    """ cluster using the K-Means algorithm """
+    if embedded_space is not pandas.DataFrame:
+        return None
+    kmeans_clusterer = sklearn.cluster.KMeans(n_clusters=n_clusters)
+    labels = kmeans_clusterer.fit_predict(embedded_space.as_matrix())
     return labels
