@@ -1,6 +1,7 @@
 import json
 import numpy as np
 import pandas
+from collections import OrderedDict
 
 from clustit.embedding import get_column_names
 
@@ -24,7 +25,8 @@ class OutputCollection(object):
         self.data_frame = data_frame.sort_values('filename')
         self.property_names = []
 
-        self.properties = {k:[] for k in data_frame.filename[:]}
+        self.properties = OrderedDict((k,[]) for k in data_frame.filename[:])
+
 
 
     def to_array(self):
@@ -41,7 +43,7 @@ class OutputCollection(object):
 
         #convert Pandas DataFrame to json format in a way that DiVE expects
         values = df[df.columns[1:]]
-        dict_of_dicts = {str(k): {"Coordinates": [float(x) for x in v]} for k,v in zip(keys, values.to_records(index=False))}
+        dict_of_dicts = OrderedDict((str(k), {"Coordinates": [float(x) for x in v]}) for k,v in zip(keys, values.to_records(index=False)))
 
         #add properties array to each item
         for k,d in dict_of_dicts.items():
