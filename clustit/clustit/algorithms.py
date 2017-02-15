@@ -67,7 +67,7 @@ def affinity(edgelist=None, distance_matrix=None, n_clusters=10):
     labels = affinity_clusterer.fit_predict(distance_matrix)
     return labels
 
-def kmeans(embedded_space, n_clusters=10):
+def kmeans(embedded_space=None, n_clusters=10):
     """ cluster using the K-Means algorithm """
     if embedded_space is not pandas.DataFrame:
         return None
