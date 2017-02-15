@@ -21,14 +21,10 @@ def test_largevis():
 
     assert len(labels) == len(expected)
     assert all([a in labels for a in expected])
-<<<<<<< HEAD
     assert output.shape == (3,3)
-=======
-    assert output.shape == (3,2)
 
 
 
 if __name__ == "__main__":
     test_largevis()
 
->>>>>>> 579aa70e1ad6e16da6de5a416f01d65fd42b882a
