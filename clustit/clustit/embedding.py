@@ -1,12 +1,13 @@
-import numpy
+import numpy as np
 import pandas
 import os
 import sys
 
 import LargeVis
-from utils import delete_temp_file
+from clustit.utils import delete_temp_file
 
-def largevis(edgelist_filename, outdim=2, alpha=-1):
+
+def largevis(edgelist_filename, outdim=2, alpha=-1.0):
     """ Use LargeVis for embedding
 
         This function is Clustit's interface to the LargeVis model
@@ -64,5 +65,6 @@ def _run_largevis(outdim=-1, threads=-1, samples=-1, prop=-1, alpha=-1.0, trees=
         :type perp: float
 
     """
-    LargeVis.run(outdim, threads, samples, prop, alpha, trees, neg, neigh, gamma, perp)
+    LargeVis.run(np.int32(outdim), np.int32(threads), np.int32(samples), np.int32(prop),
+            np.float32(alpha), np.int32(trees), np.int32(neg), np.int32(neigh), np.float32(gamma), np.float32(perp))
 

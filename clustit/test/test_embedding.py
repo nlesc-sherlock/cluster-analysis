@@ -9,9 +9,7 @@ import os
 test_files = os.path.dirname(os.path.realpath(__file__)) + "/test_files/"
 
 
-
 def test_largevis():
-
     output = embedding.largevis(test_files + 'edgelist.txt', outdim=2, alpha=0.1)
 
     print(output)
