@@ -1,17 +1,11 @@
 """ module containing the implementations of clustering algorithms used in clustit """
 
-from __future__ import print_function
+import scipy.cluster.hierarchy as sch
+import hdbscan
+import sklearn.cluster
 
 import clustit.utils as utils
-import scipy.cluster.hierarchy as sch
-from sklearn.cluster.hierarchical import _TREE_BUILDERS
-import hdbscan
-#from clustit.plot import plot_dendrogram
-import scipy
-import pandas
-
-import sklearn.cluster
-from builtins import input
+from clustit.output import OutputCollection
 
 
 def hierarchical_clustering(similarities=None, method='complete', threshold=None, distance_cutoff=200):
@@ -61,8 +55,8 @@ def affinity(similarities=None):
 
 def kmeans(embedded_space=None, n_clusters=10):
     """ cluster using the K-Means algorithm """
-    if embedded_space is not pandas.DataFrame:
+    if embedded_space is not OutputCollection:
         return None
     kmeans_clusterer = sklearn.cluster.KMeans(n_clusters=n_clusters)
-    labels = kmeans_clusterer.fit_predict(embedded_space.as_matrix())
+    labels = kmeans_clusterer.fit_predict(embedded_space.to_array())
     return labels
