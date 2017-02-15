@@ -91,7 +91,7 @@ def similarity_to_distance(similarities, cutoff):
     return distances
 
 def delete_temp_file(filename):
-    #delete a temporary filename but don't complain if it's gone already
+    """delete a temporary filename but don't complain if it's gone already"""
     try:
         os.remove(filename)
     except OSError as e:

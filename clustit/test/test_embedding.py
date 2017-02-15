@@ -15,9 +15,9 @@ def test_largevis():
     print(output)
     print(output.shape)
 
-    labels = [str(s) for s in output.index[:]]
+    labels = [str(s) for s in output.filename[:]]
     expected = ['node001', 'node002', 'node003']
 
     assert len(labels) == len(expected)
     assert all([a in labels for a in expected])
-    assert output.shape == (3,2)
+    assert output.shape == (3,3)

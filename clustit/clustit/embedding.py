@@ -29,9 +29,19 @@ def largevis(edgelist_filename, outdim=2, alpha=-1.0):
     temp_file = "/tmp/largevis_tempfile.txt"
     try:
         LargeVis.save(temp_file)
-        data_frame = pandas.read_csv(temp_file, sep=" ", index_col=0)
+        names = ['filename']
+        if outdim <= 3:
+            names.append('x')
+            names.append('y')
+        if outdim == 3:
+            names.append('z')
+        if outdim > 3:
+            names += [str(x) for x in range(outdim)]
+
+        data_frame = pandas.read_csv(temp_file, sep=" ", names=names, header=0)
     finally:
-        delete_temp_file(temp_file)
+        #delete_temp_file(temp_file)
+        pass
 
     return data_frame
 
