@@ -57,6 +57,8 @@ Before creating a pull request or committing changes, please ensure the followin
 * The code is compatible with both Python 2.7 and Python 3.5
 
 Contributing authors so far:
+* Anand Gavai
+* Alessio Sclocco
 * Arnold Kuzniar
 * Rena Bakhshi
 * Ben van Werkhoven
