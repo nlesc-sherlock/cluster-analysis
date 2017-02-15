@@ -1,13 +1,14 @@
 from __future__ import print_function
 
-from .context import clustit
+#from .context import clustit
 import numpy
 from nose.tools import raises
-import clustit.embedding as embedding
+from clustit import embedding
 
 import os
 test_files = os.path.dirname(os.path.realpath(__file__)) + "/test_files/"
 
+#test_files=os.getcwd()+"/test/test_files"
 
 def test_largevis():
     output = embedding.largevis(test_files + 'edgelist.txt', outdim=2, alpha=0.1)
@@ -20,4 +21,14 @@ def test_largevis():
 
     assert len(labels) == len(expected)
     assert all([a in labels for a in expected])
+<<<<<<< HEAD
     assert output.shape == (3,3)
+=======
+    assert output.shape == (3,2)
+
+
+
+if __name__ == "__main__":
+    test_largevis()
+
+>>>>>>> 579aa70e1ad6e16da6de5a416f01d65fd42b882a

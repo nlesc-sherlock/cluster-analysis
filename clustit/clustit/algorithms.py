@@ -9,6 +9,7 @@ from sklearn.cluster.hierarchical import _TREE_BUILDERS
 import hdbscan
 #from clustit.plot import plot_dendrogram
 import scipy
+import pandas
 
 import sklearn.cluster
 from builtins import input
@@ -43,8 +44,8 @@ def hierarchical_dbscan(edgelist=None, distance_matrix=None):
     if edgelist is not None:
         distance_matrix = utils.edgelist_to_distance_matrix(edgelist)
     hdbscan_clusterer = hdbscan.HDBSCAN(metric="precomputed", min_samples=2)
-    hdbscan_clusterer.fit(distance_matrix)
-    return hdbscan_clusterer.labels_
+    labels = hdbscan_clusterer.fit_predict(distance_matrix)
+    return labels
 
 def spectral(edgelist=None, distance_matrix=None,n_clusters=10):
     """ cluster using spectral clustering """
@@ -56,4 +57,20 @@ def spectral(edgelist=None, distance_matrix=None,n_clusters=10):
     sc = sklearn.cluster.SpectralClustering(n_clusters, affinity='precomputed')
     labels = sc.fit_predict(distance_matrix)
 
+    return labels
+
+def affinity(edgelist=None, distance_matrix=None, n_clusters=10):
+    """ cluster using the affinity propagation algorithm """
+    if edgelist is not None:
+        distance_matrix = utils.edgelist_to_distance_matrix(edgelist)
+    affinity_clusterer = sklearn.cluster.AffinityPropagation(affinity="precomputed", preference=n_clusters)
+    labels = affinity_clusterer.fit_predict(distance_matrix)
+    return labels
+
+def kmeans(embedded_space=None, n_clusters=10):
+    """ cluster using the K-Means algorithm """
+    if embedded_space is not pandas.DataFrame:
+        return None
+    kmeans_clusterer = sklearn.cluster.KMeans(n_clusters=n_clusters)
+    labels = kmeans_clusterer.fit_predict(embedded_space.as_matrix())
     return labels
