@@ -31,10 +31,6 @@ def test_output():
         json_object = json.loads(json_string)
     except ValueError as e:
         assert False
-
-
-    assert False
-
     assert True
 
 
@@ -45,3 +41,14 @@ def test_output2():
     array = oc.to_array()
     assert array.shape == (5,3)
 
+
+def test_output_with_file():
+    df = embedding.largevis(test_files + 'edgelist-pentax-pce.txt', outdim=3, alpha=0.1)
+
+    oc1 = OutputCollection(data_frame=df)
+    print(oc1)
+
+    oc2 = OutputCollection(largevis_file= test_files + 'largevis_testfile.txt')
+    print(oc2)
+
+    assert str(oc1) == str(oc2)

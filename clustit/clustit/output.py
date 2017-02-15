@@ -1,17 +1,25 @@
 import json
 import numpy as np
+import pandas
 
-
+from clustit.embedding import get_column_names
 
 class OutputCollection(object):
 
-    def __init__(self, data_frame):
+    def __init__(self, data_frame=None, largevis_file=None):
         """ Create an Object to collects output from clustit for visualization using DiVE
 
         :param: data_frame: A data frame containing the output produced by LargeVis
         :type data_frame: pandas.DataFrame
 
         """
+        if largevis_file:
+            if data_frame:
+                raise Exception("Error: please use either data_frame or largevis_file")
+            with open(largevis_file, 'r') as f:
+                ndim = int(f.readline().split(" ")[-1])
+            names = get_column_names(ndim)
+            data_frame = pandas.read_csv(largevis_file, sep=" ", names=names, header=0)
 
         self.data_frame = data_frame.sort_values('filename')
         self.property_names = []

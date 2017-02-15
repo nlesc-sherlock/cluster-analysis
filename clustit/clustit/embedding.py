@@ -6,6 +6,18 @@ import sys
 import LargeVis
 from clustit.utils import delete_temp_file
 
+def get_column_names(outdim):
+    names = ['filename']
+    if outdim <= 3:
+        names.append('x')
+        names.append('y')
+    if outdim == 3:
+        names.append('z')
+    if outdim > 3:
+        names += [str(x) for x in range(outdim)]
+    return names
+
+
 
 def largevis(edgelist_filename, outdim=2, alpha=-1.0):
     """ Use LargeVis for embedding
@@ -29,15 +41,7 @@ def largevis(edgelist_filename, outdim=2, alpha=-1.0):
     temp_file = "/tmp/largevis_tempfile.txt"
     try:
         LargeVis.save(temp_file)
-        names = ['filename']
-        if outdim <= 3:
-            names.append('x')
-            names.append('y')
-        if outdim == 3:
-            names.append('z')
-        if outdim > 3:
-            names += [str(x) for x in range(outdim)]
-
+        names = get_column_names(outdim)
         data_frame = pandas.read_csv(temp_file, sep=" ", names=names, header=0)
     finally:
         #delete_temp_file(temp_file)
