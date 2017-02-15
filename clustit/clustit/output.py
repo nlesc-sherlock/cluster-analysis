@@ -42,7 +42,12 @@ class OutputCollection(object):
         #add as a special item the names of the properties
         dict_of_dicts["NamesOfProperties"] = self.property_names
 
-        return json.dumps(dict_of_dicts)
+        json_string = json.dumps(dict_of_dicts)
+
+        if filename:
+            with open(filename, 'w') as f:
+                f.write(json_string)
+        return json_string
 
 
 
