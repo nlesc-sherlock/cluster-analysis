@@ -55,7 +55,7 @@ def affinity(similarities=None):
 
 def kmeans(embedded_space=None, n_clusters=10):
     """ cluster using the K-Means algorithm """
-    if embedded_space is not OutputCollection:
+    if not isinstance(embedded_space, OutputCollection):
         return None
     kmeans_clusterer = sklearn.cluster.KMeans(n_clusters=n_clusters)
     labels = kmeans_clusterer.fit_predict(embedded_space.to_array())
