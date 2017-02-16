@@ -60,3 +60,11 @@ def kmeans(embedded_space=None, n_clusters=10):
     kmeans_clusterer = sklearn.cluster.KMeans(n_clusters=n_clusters)
     labels = kmeans_clusterer.fit_predict(embedded_space.to_array())
     return labels
+
+def meanshift(embedded_space=None):
+    """ cluster using the mean shift algorithm """
+    if not isinstance(embedded_space, OutputCollection):
+        return None
+    meanshift_clusterer = sklearn.cluster.MeanShift(cluster_all=False)
+    labels = meanshift_clusterer.fit_predict(embedded_space.to_array())
+    return labels
