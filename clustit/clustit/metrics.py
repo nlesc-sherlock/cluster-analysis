@@ -32,12 +32,16 @@ def compute_rates(ground_truth_labels, cluster_labels):
 def precision(ground_truth_labels, cluster_labels):
     ntp = tp(ground_truth_labels, cluster_labels)
     nfp = fp(ground_truth_labels, cluster_labels)
+    if ntp == 0.0:
+        return 0.0
     return ntp / (ntp + nfp)
 
 
 def recall(ground_truth_labels, cluster_labels):
     ntp = tp(ground_truth_labels, cluster_labels)
     nfn = fn(ground_truth_labels, cluster_labels)
+    if ntp == 0.0:
+        return 0.0
     return ntp / (ntp + nfn)
 
 
