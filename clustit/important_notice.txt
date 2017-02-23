@@ -1,0 +1,11 @@
+If you haven't installed LargeVis, you can still run the clustering notebooks on the embeddings, you need to comment the lines 
+
+#import LargeVis
+#from clustit.utils import delete_temp_file
+
+in clustit/embeddings.py
+
+
+ALso comment 
+#import hdbscan 
+in clustit/algorithms.py
