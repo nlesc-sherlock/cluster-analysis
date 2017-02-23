@@ -9,3 +9,5 @@ in clustit/embeddings.py
 ALso comment 
 #import hdbscan 
 in clustit/algorithms.py
+
+This does not work yet
