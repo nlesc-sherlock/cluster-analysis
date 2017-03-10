@@ -18,6 +18,7 @@ package nl.minvenj.nfi.prnu;
 import java.io.File;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.ArrayList;
 import java.awt.image.BufferedImage;
 
 import nl.minvenj.nfi.prnu.filtergpu.*;
@@ -43,6 +44,10 @@ public class PrnuPatternCache {
 
     //map that stores the cacheitems based on their associated image filename
     HashMap<String, cacheItem> cache;
+
+    //array to store pinned memory allocations
+    Pointer[] hostAllocations;
+    ArrayList<Integer> hostFree;
 
     //a reference to the PRNUfilter class for retrieving patterns currently not in the cache
     PRNUFilter filter;
@@ -99,7 +104,21 @@ public class PrnuPatternCache {
         //initial capacity is the number of patterns in the cache
         //the load factor is set so that the HashMap won't grow automatically
         cache = new HashMap<String, cacheItem>(numPatterns, 1.1f);
+
+        //create an array of host allocations to reuse for cacheitems
+        hostAllocations = new Pointer[numPatterns];
+        //keep an list of indices to free slots in the hostAllocations array
+        hostFree = new ArrayList<Integer>(numPatterns);
+        for (int i=0; i<numPatterns; i++) {
+            hostFree.add(i);
+            Pointer hostp = new Pointer();
+            hostAllocations[i] = hostp;
+            JCudaDriver.cuMemAllocHost(hostp, patternSizeBytes);
+        }
+
+
     }
+
 
     /**
      * Retrieve the pattern belonging to the image filename from the cache
@@ -118,7 +137,8 @@ public class PrnuPatternCache {
             }
 
             //create the item and store in cache
-            item = new cacheItem(filename);
+            int hostAlloc = hostFree.remove(0);
+            item = new cacheItem(filename, hostAllocations[hostAlloc], hostAlloc);
             cache.put(filename, item);
         }
             
@@ -149,7 +169,9 @@ public class PrnuPatternCache {
             if (cache.containsKey(filenames[i])) {
                 //do nothing
             } else {
-                cache.put(filenames[i], new cacheItem(filenames[i]));
+                int hostAlloc = hostFree.remove(0);
+                cacheItem item = new cacheItem(filenames[i], hostAllocations[hostAlloc], hostAlloc);
+                cache.put(filenames[i], item);
             }
 
             //This System.gc() is necessary unfortunately
@@ -165,6 +187,7 @@ public class PrnuPatternCache {
     void evict() {
         long lru = Long.MAX_VALUE;
         String evict = "";
+        int index = 0;
 
         for (Map.Entry<String, cacheItem> entry : cache.entrySet()) {
             String key = entry.getKey();
@@ -172,9 +195,11 @@ public class PrnuPatternCache {
             if (value.used < lru) {
                 lru = value.used;
                 evict = key;
+                index = value.index;
             }
         }
 
+        hostFree.add(index);
         cache.remove(evict);
     }
 
@@ -187,6 +212,7 @@ public class PrnuPatternCache {
 
         public long used;
         public Pointer pattern;
+        public int index;
 
         /**
          * Constructs a cacheItem based on a filename of an image
@@ -194,7 +220,8 @@ public class PrnuPatternCache {
          *
          * @param filename      a String containing the filename of the image
          */
-        cacheItem(String filename) {
+        cacheItem(String filename, Pointer hostPointer, int index) {
+            this.index = index;
 
             File f = new File(path + "/" + filename);
 
@@ -205,10 +232,6 @@ public class PrnuPatternCache {
                 e.printStackTrace();
                 System.exit(1);
             }
-
-            long nbytes = image.getHeight()*image.getWidth()*Sizeof.FLOAT;
-            Pointer hostPointer = new Pointer();
-            JCudaDriver.cuMemAllocHost(hostPointer, nbytes);
 
             pattern = filter.apply(image, hostPointer);
         }
