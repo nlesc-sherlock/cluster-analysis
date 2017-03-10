@@ -39,7 +39,8 @@ public final class FastNoiseFilter {
 
 	//handles to device memory arrays
 	protected CudaMemFloat _d_input;
-	protected CudaMemFloat _d_temp;
+	protected CudaMemFloat _d_dxs;
+	protected CudaMemFloat _d_dys;
 
 	//threads
 	protected int _threads_x = 32;
@@ -88,13 +89,15 @@ public final class FastNoiseFilter {
 		_gradient.setDim(_grid_x, _grid_y, _grid_z, _threads_x, _threads_y, _threads_z);
 
 		// Allocate the CUDA buffers for this kernel
-		_d_temp = _context.allocFloats(w*h);
+		_d_dxs = _context.allocFloats(w*h);
+		_d_dys = _context.allocFloats(w*h);
 
 		// Setup the parameter lists for each kernel call 
 		normalized_gradient = Pointer.to(
 				Pointer.to(new int[]{h}),
 				Pointer.to(new int[]{w}),
-				Pointer.to(_d_temp.getDevicePointer()),
+				Pointer.to(_d_dxs.getDevicePointer()),
+				Pointer.to(_d_dys.getDevicePointer()),
 				Pointer.to(_d_input.getDevicePointer())
 				);
 
@@ -102,7 +105,8 @@ public final class FastNoiseFilter {
 				Pointer.to(new int[]{h}),
 				Pointer.to(new int[]{w}),
 				Pointer.to(_d_input.getDevicePointer()),
-				Pointer.to(_d_temp.getDevicePointer())
+				Pointer.to(_d_dxs.getDevicePointer()),
+				Pointer.to(_d_dys.getDevicePointer())
 				);
 
 	}
@@ -228,7 +232,8 @@ public final class FastNoiseFilter {
 	 * cleans up GPU memory
 	 */
 	public void cleanup() {
-		_d_temp.free();
+		_d_dxs.free();
+		_d_dys.free();
 	}
 
 }
