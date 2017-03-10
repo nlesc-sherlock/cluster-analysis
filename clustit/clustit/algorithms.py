@@ -1,7 +1,7 @@
-""" module containing the implementations of clustering algorithms used in clustit """
+﻿""" module containing the implementations of clustering algorithms used in clustit """
 
 import scipy.cluster.hierarchy as sch
-import hdbscan
+#import hdbscan
 import sklearn.cluster
 
 import clustit.utils as utils
