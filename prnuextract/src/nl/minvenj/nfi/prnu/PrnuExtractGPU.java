@@ -567,7 +567,7 @@ public class PrnuExtractGPU {
         System.gc();
 
         //use cache instead of extracting all patterns
-        cache = new PrnuPatternCache(height, width, filter, folderpath);
+        cache = new PrnuPatternCache(height, width, filter, folderpath, numfiles);
 
         //populate the cache with the first n patterns where n is the size of the cache
         start = System.nanoTime();

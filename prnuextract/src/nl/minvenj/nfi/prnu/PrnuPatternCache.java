@@ -60,21 +60,26 @@ public class PrnuPatternCache {
      * 
      * This method also determines the number of patterns that can be stored in the cache based
      * on the amount of memory currently available to the JVM. It will attempt to eat up all the
-     * available memory except for the last 5GB, to leave some memory to work with to the rest
+     * available memory except for the last 10GB, to leave some memory to work with to the rest
      * of the application.
      *
      * @param h         height of the images
      * @param w         width of the images
      * @param filter    reference to PRNUFilter object that is used to extract PRNU patterns from images
-     * @param path      String containing the path to the folder containing the images
+     * @param path      String with the name of the folder path where the images are stored
+     * @param numfiles  total number of files the cache represents
      */
-    public PrnuPatternCache(int h, int w, PRNUFilter filter, String path) {
+    public PrnuPatternCache(int h, int w, PRNUFilter filter, String path, int numfiles) {
         this.filter = filter;
         this.path = path;
 
         int patternSizeBytes = h * w * 4;
         System.out.println("pattern size = " + patternSizeBytes + " in MB: " + (patternSizeBytes/1024/1024));
 
+        //pinned host memory allocates memory outside of the JVM
+        //it's apparently difficult for the JVM to find out how much system memory there is
+        //therfore currently using a hard coded 50 GB for the pattern cache
+        /*
         //obtain info about the amount of memory available
         Runtime runtime = Runtime.getRuntime();
         long totalSpace = runtime.totalMemory();
@@ -87,16 +92,17 @@ public class PrnuPatternCache {
 
         System.out.println("free space = " + actualFreeSpace + " in MB: " + (actualFreeSpace/1024/1024));
 
-        //it is probably smart to not use everything, but leave say 5 gigabyte free for other stuff
+        //it is probably smart to not use everything, but leave say 10 gigabyte free for other stuff
         double free = (double)actualFreeSpace;
+        */
         double patternsize = (double)patternSizeBytes;
-        int fitPatterns = (int)Math.floor( (actualFreeSpace - 5*1e9) / patternsize );
+
+        double claimMemory = 50e9; //just claim 50 gigs of host memory for patterns
+
+        int fitPatterns = (int)Math.floor( (claimMemory) / patternsize );
+        fitPatterns = Math.min(fitPatterns, numfiles);
 
         System.out.println("Number of patterns that the cache will hold: " + fitPatterns);
-        if (fitPatterns < 10) {
-            System.err.println("Number of patterns that cache will hold is too small: " + fitPatterns);
-            System.exit(1);
-        }
 
         this.numPatterns = fitPatterns;
 
@@ -110,13 +116,24 @@ public class PrnuPatternCache {
         //keep an list of indices to free slots in the hostAllocations array
         hostFree = new ArrayList<Integer>(numPatterns);
         for (int i=0; i<numPatterns; i++) {
-            hostFree.add(i);
             Pointer hostp = new Pointer();
-            hostAllocations[i] = hostp;
             JCudaDriver.cuMemAllocHost(hostp, patternSizeBytes);
+            hostAllocations[i] = hostp;
+            hostFree.add(i);
         }
 
+        /*
+        //obtain info about the amount of memory available
+        runtime = Runtime.getRuntime();
+        totalSpace = runtime.totalMemory();
+        maxSpace = runtime.maxMemory();
+        freeSpace = runtime.freeMemory();
+        System.out.println("max mem=" + maxSpace + " total mem=" + totalSpace + " free mem=" + freeSpace);
 
+        inuse = totalSpace - freeSpace;
+        actualFreeSpace = maxSpace - inuse;
+        System.out.println("free space = " + actualFreeSpace + " in MB: " + (actualFreeSpace/1024/1024));
+        */
     }
 
 
@@ -199,8 +216,9 @@ public class PrnuPatternCache {
             }
         }
 
-        hostFree.add(index);
         cache.remove(evict);
+        hostFree.add(index);
+        System.gc();
     }
 
 

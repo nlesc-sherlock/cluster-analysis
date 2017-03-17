@@ -85,6 +85,40 @@ def flat_clustering(linkage, threshold):
         label += 1
     return labeling, cluster_members
 
+
+def compute_rates(ground_truth_labels, cluster_labels):
+    cl = cluster_labels
+    gt = ground_truth_labels
+    fp = 0
+    fn = 0
+    tp = 0
+    tn = 0
+    n = len(cl)
+    for v1,v2 in itertools.product(range(n), range(n)):
+        if v1!=v2 and cl[v1] == cl[v2] and gt[v1] != gt[v2]:
+            fp += 1
+        if v1!=v2 and cl[v1] == cl[v2] and gt[v1] == gt[v2]:
+            tp += 1
+        if v1!=v2 and cl[v1] != cl[v2] and gt[v1] == gt[v2]:
+            fn += 1
+        if v1!=v2 and cl[v1] != cl[v2] and gt[v1] != gt[v2]:
+            tn += 1
+    fpr = fp / (fp + tn)
+    tpr = tp / (tp + fn)
+    fnr = fn / (tp + fn)
+    tnr = 1 - fpr
+
+    ppv = 1
+    if tp +fp != 0:
+        ppv = tp / (tp + fp)
+    npv = 1
+    if tn+fn != 0:
+        npv = tn / (tn + fn)
+
+    recall = tp / (tp + fn)
+    precision = tp / (tp + fp)
+    return fpr, tpr, fnr, tnr, precision, recall, ppv, npv
+
 def false_positives(clusters, gt, verbose=False):
     """ return absolute number of false positives """
     fp = 0
@@ -109,6 +143,7 @@ def false_negatives(cluster_labels, gt):
             if cluster_labels[p[0]]!=cluster_labels[p[1]]:
                 fn += 1
     return fn
+
 
 def average(matrix):
     matrix_copy = numpy.copy(matrix)
@@ -193,47 +228,53 @@ ground_truth_labels = numpy.array([int(i.split("_")[-1][0]) for i in camlist])
 labels, clusters = flat_clustering(linkage, 60)
 fp = false_positives(clusters, ground_truth_labels, verbose=True)
 
-print(filelist[256], filelist[568])
+#print(filelist[256], filelist[568])
 
 
 num_clusters = []
 thresholds = []
 fps = []
 fns = []
+precision = []
+recall = []
+ppvs = []
+npvs = []
 
-
-for threshold in numpy.linspace(0,70,100):
+for threshold in numpy.linspace(0,70,71):
     labels, clusters = flat_clustering(linkage, threshold)
-    fp = false_positives(clusters, ground_truth_labels)
-    fp_rate = (fp/(N*(N-1)))*100.0
-    fn = false_negatives(labels, ground_truth_labels)
-    fn_rate = (fn/(N*(N-1)))*100.0
+    fpr, _, fnr, _, p, r, ppv, npv = compute_rates(ground_truth_labels, labels)
     thresholds.append(threshold)
-    fps.append(fp_rate)
-    fns.append(fn_rate)
+    fps.append(fpr * 100.0)
+    fns.append(fnr * 100.0)
+    precision.append(p)
+    recall.append(r)
+    ppvs.append(ppv)
+    npvs.append(npv)
     num_clusters.append(len(clusters))
+    print("threshold", threshold, "fpr", fpr * 100.0, "fnr", fnr * 100.0)
+    print("     precision", p, "recall", r)
+    print("     ppv", ppv, "npv", npv)
+
+
+#print(numpy.array(list(zip(thresholds, fns, fps, num_clusters))))
 
 
 
-print(numpy.array(list(zip(thresholds, fns, fps, num_clusters))))
 
-
-
-
-def make_dual_plot(title, x_series, x_label, y1_series, y1_label, y2_series, y2_label):
+def make_dual_plot(title, x_series, x_label, y1_series, y1_label, y2_series, y2_label, min=0, max=1):
     f, ax1 = pyplot.subplots()
     ax1.set_title(title)
     ax1.plot(x_series, y1_series, 'b-')
     ax1.set_xlabel(x_label)
     ax1.set_ylabel(y1_label, color='b')
     ax1.tick_params('y', colors='b')
-    ax1.set_ylim([0,80])
+    ax1.set_ylim([min,max])
 
     ax2 = ax1.twinx()
     ax2.plot(x_series, y2_series, 'g-')
     ax2.set_ylabel(y2_label, color='g')
     ax2.tick_params('y', colors='g')
-    ax2.set_ylim([0,80])
+    ax2.set_ylim([min,max])
 
     f.set_size_inches(10, 6, forward=True)
     f.tight_layout()
@@ -242,7 +283,12 @@ def make_dual_plot(title, x_series, x_label, y1_series, y1_label, y2_series, y2_
     f.savefig("plot.eps", format="eps")
 
 
-make_dual_plot("Varying threshold for pentax dataset", thresholds, "threshold", fps, "FPR (%)", fns, "FNR (%)")
+#make_dual_plot("Varying threshold for pentax dataset", thresholds, "threshold", fps, "FPR (%)", fns, "FNR (%)", min=0, max=100)
+#make_dual_plot("Varying threshold for pentax dataset", thresholds, "threshold", precision, "precision", recall, "recall")
+
+
+make_dual_plot("Varying threshold for pentax dataset", thresholds, "threshold", ppvs, "PPV", npvs, "NPV")
+
 
 pyplot.show()
 
